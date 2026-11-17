@@ -37,12 +37,13 @@ mkdirSync(join(rootDir, "state"), { recursive: true });
 const posix = (path: string) => path.replaceAll("\\", "/");
 
 // Sort orders are part of the contract: they make the files reproducible and let
-// DuckDB skip row groups (property by map cell, permit by folio).
+// DuckDB skip row groups (property and permit by map cell).
 const TABLES: Record<string, string> = {
   property: "floor(lat * 50), floor(lon * 50), folio",
-  permit: "folio NULLS LAST, permit_number",
+  permit: "floor(lat * 50) NULLS LAST, floor(lon * 50), permit_number",
   contractor: "contractor_number",
   owner: "owner_id",
+  place: "name",
 };
 const tableCounts: Record<string, number> = {};
 for (const [table, order] of Object.entries(TABLES)) {

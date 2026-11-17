@@ -7,6 +7,7 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  *   permit      one row per permit, with a derived status and a roofing flag
  *   contractor  one row per contractor number seen on permits
  *   owner       one row per distinct owner name + mailing address
+ *   place       one row per site city, with the centre of its properties
  *
  * Rules that matter:
  * - Nothing here depends on today's date. Ages and open durations are computed
@@ -139,8 +140,13 @@ FROM base b
 LEFT JOIN roof_permit r ON r.folio = b.folio
 LEFT JOIN county_zip z ON z.zip = b.mailing_zip;
 
+-- A permit takes its location from the property it is filed against.
 ALTER TABLE permit ADD COLUMN property_matched BOOLEAN;
-UPDATE permit SET property_matched = folio IN (SELECT folio FROM property);
+ALTER TABLE permit ADD COLUMN lon DOUBLE;
+ALTER TABLE permit ADD COLUMN lat DOUBLE;
+UPDATE permit SET property_matched = false;
+UPDATE permit SET property_matched = true, lon = p.lon, lat = p.lat
+FROM property p WHERE p.folio = permit.folio;
 `;
 
 const CONTRACTOR = `
@@ -177,6 +183,20 @@ WHERE p.contractor_number IS NOT NULL
 GROUP BY p.contractor_number, c.county_status, c.county_source_url;
 `;
 
+const PLACE = `
+-- Named places for "near <city>" questions: the centre of each site city's
+-- properties. Derived from the roll itself, so no outside geocoder is needed.
+CREATE OR REPLACE TABLE place AS
+SELECT site_city AS name,
+       count(*) AS properties,
+       median(lat) AS lat,
+       median(lon) AS lon
+FROM property
+WHERE site_city IS NOT NULL AND lat IS NOT NULL
+GROUP BY site_city
+HAVING count(*) >= 50;
+`;
+
 const OWNER = `
 -- Owners reconciled by exact name and mailing address. Different spellings of
 -- one owner stay separate: merging them would be a guess.
@@ -194,5 +214,5 @@ GROUP BY owner_id;
 `;
 
 export async function buildModel(con: DuckDBConnection): Promise<void> {
-  for (const sql of [PERMIT, PROPERTY, CONTRACTOR, OWNER]) await con.run(sql);
+  for (const sql of [PERMIT, PROPERTY, CONTRACTOR, OWNER, PLACE]) await con.run(sql);
 }

@@ -86,6 +86,38 @@ export async function buildSnapshotCar(
   return { root: rootKey, entries, blocks: blocks.size };
 }
 
+/**
+ * Write one file's DAG to its own CAR, rooted at the file's CID. Uploading this
+ * makes the file retrievable by its own CID, not only by path under a directory.
+ */
+export async function buildFileCar(path: string, carPath: string): Promise<string> {
+  const blocks = new Map<string, { cid: CID; bytes: Uint8Array }>();
+  const blockstore = {
+    async put(cid: CID, bytes: Uint8Array) {
+      blocks.set(cid.toString(), { cid, bytes });
+      return cid;
+    },
+  };
+  let root: CID | null = null;
+  for await (const entry of importer([{ content: createReadStream(path) }], blockstore as any, {
+    cidVersion: 1,
+    rawLeaves: true,
+  })) {
+    root = entry.cid;
+  }
+  if (!root) throw new Error(`Could not address ${path}`);
+  const { writer, out } = CarWriter.create([root]);
+  const written = pipeline(Readable.from(out), createWriteStream(carPath));
+  const rootKey = root.toString();
+  await writer.put(blocks.get(rootKey)!);
+  for (const key of [...blocks.keys()].sort()) {
+    if (key !== rootKey) await writer.put(blocks.get(key)!);
+  }
+  await writer.close();
+  await written;
+  return rootKey;
+}
+
 /** CID of a single file added on its own (used for the manifest and the CAR file). */
 export async function fileCid(path: string): Promise<string> {
   let cid: CID | null = null;

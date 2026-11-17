@@ -88,3 +88,30 @@ data produce different Parquet files.
 The manifest names the root directory's CID, so it cannot live under that root. It is its
 own file with its own CID, recorded in `publications/` in Git along with the previous
 snapshot's manifest and root CIDs.
+
+## 13. Pipeline state is published, so a run needs no machine of ours
+
+Deltas are computed against `key_state_<source>` (record key and content hash), not the
+previous full rows. Each snapshot carries those tables plus the change log and run history
+under `state/`. `npm run restore` loads them into an empty store, and the next run reports
+the same deltas it would have on the original machine. This is what lets a scheduled job on
+a fresh runner be incremental with no hosted database.
+
+## 14. Every listed CID is pinned as its own root
+
+A pinning node announces the root of each upload, not the blocks inside it. A file reachable
+only by path under the snapshot directory may not be found by its own CID on the public
+network. So each file, the CAR file and the manifest are also uploaded as single-root CARs,
+keyed by CID (an unchanged artifact is never uploaded twice).
+
+## 15. Which gateways count as independent retrieval
+
+The README's example gateways, `ipfs.io` and `dweb.link`, now answer plain HTTP requests
+with 429 and a notice that they serve only through an in-browser service worker, so they
+cannot be used for a scripted byte check. Retrieval is verified against a configurable list
+of other public gateways not operated by us or by the pinning vendor (`src/gateways.ts`).
+The pinning vendor's own gateway is recorded but never counts toward the required two.
+Every attempt, including failures, is saved in `publications/<snapshot>/retrieval.json`.
+
+A snapshot is added to `publications/index.json` only when every listed CID was fetched
+from two independent gateways with matching size and SHA-256.

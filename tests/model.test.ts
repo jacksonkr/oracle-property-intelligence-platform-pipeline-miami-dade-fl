@@ -82,6 +82,13 @@ describe("owner location", () => {
   });
 });
 
+describe("permit location", () => {
+  it("comes from the matched property, and stays empty without one", async () => {
+    expect(await one(`SELECT lon, lat FROM permit WHERE permit_number = 'P1'`)).toEqual({ lon: -80.2, lat: 25.77 });
+    expect(await one(`SELECT lon, lat FROM permit WHERE permit_number = 'P4'`)).toEqual({ lon: null, lat: null });
+  });
+});
+
 describe("contractor", () => {
   it("is one row per number, with name variants counted and county status joined", async () => {
     expect(await one(`SELECT name_variants, permits, roofing_permits, open_roofing_permits, state_licence_class, county_status
