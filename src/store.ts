@@ -97,6 +97,27 @@ export interface LoadResult {
 export const stateTable = (sourceKey: string) => ident(`key_state_${sourceKey}`);
 const STATE_COLUMNS = `_key VARCHAR, _row_hash VARCHAR, _first_seen_run VARCHAR, _last_changed_run VARCHAR, _captured_at TIMESTAMP`;
 
+/**
+ * Refuse a full read that looks incomplete. A publisher that reloads a table can be
+ * read while it is empty or half filled; recording that as thousands of removals
+ * would publish a moment of the publisher's maintenance as if it were fact.
+ */
+export const MIN_SHARE_OF_KNOWN = 0.5;
+export function checkComplete(sourceKey: string, reported: number, known: number): void {
+  if (reported === 0) throw new Error(`${sourceKey}: the publisher returned no records; nothing was recorded`);
+  if (reported < known * MIN_SHARE_OF_KNOWN) {
+    throw new Error(
+      `${sourceKey}: the publisher returned ${reported} records where ${known} were known. ` +
+        `That is less than ${MIN_SHARE_OF_KNOWN * 100}%, so the read is treated as incomplete and nothing was recorded`,
+    );
+  }
+}
+
+export async function knownKeys(con: DuckDBConnection, sourceKey: string): Promise<number> {
+  await ensureStateTable(con, sourceKey);
+  return scalar(con, `SELECT count(*) FROM ${stateTable(sourceKey)}`);
+}
+
 export async function ensureStateTable(con: DuckDBConnection, sourceKey: string): Promise<void> {
   await con.run(`CREATE TABLE IF NOT EXISTS ${stateTable(sourceKey)} (${STATE_COLUMNS})`);
   // Stores created before `_captured_at` existed gain the column; NULL means "not known".

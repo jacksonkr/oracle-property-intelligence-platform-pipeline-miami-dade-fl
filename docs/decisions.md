@@ -235,3 +235,25 @@ source (`kind: "bbb_sitemap"`).
   to read the rating on BBB's own page.
 - **Trade-off:** a name match can be wrong (two firms with one name, one of them without a
   profile). The state licence join, by exact number, stays the contractor-quality signal.
+
+## 25. A publisher reload is not a change, and an empty read is not a removal
+
+Found on 2026-11-17, the first time the scheduled run met a county reload. The county had
+reloaded its permit table and was part-way through reloading its contractor table. The run
+did two wrong things, and snapshot `20261117T152027Z` records both:
+
+- **All 489,896 permits were reported as changed.** Their content was identical. The reload
+  had given every row a new `GlobalID`, and that field was part of the content hash.
+  Fix: fields of ArcGIS type GlobalID are left out of the hash, as ObjectID already was.
+  Cost: the next run reports every permit as changed once more, because the hash rule itself
+  changed. After that a reload with no content change produces no deltas and no new CID.
+- **22,279 contractor records were reported as removed**, because the layer was empty at
+  that moment. Fix: a full read that returns nothing, or under half the records already
+  known, stops the run with an error. Nothing is recorded, nothing is published, and the
+  last good snapshot stays in place until the publisher is whole again. The threshold is a
+  judgement: a licence table does not lose half its rows overnight.
+
+The snapshot was left in the history, not withdrawn. Publication history is append-only, and
+its run table shows exactly what the publisher returned. Until the county finishes its
+reload, that snapshot has no county licence status on contractors; state licence standing
+from DBPR is unaffected.

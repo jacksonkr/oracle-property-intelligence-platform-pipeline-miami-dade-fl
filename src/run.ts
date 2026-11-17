@@ -5,7 +5,7 @@ import { captureArcgis } from "./arcgis.js";
 import { COUNTY, getSource } from "./catalog.js";
 import { captureCsv } from "./csv.js";
 import { captureBbbSitemap } from "./sitemap.js";
-import { lit, loadSource, openStore } from "./store.js";
+import { checkComplete, knownKeys, lit, loadSource, openStore } from "./store.js";
 
 /**
  * One pipeline run for one source: capture -> load -> record deltas.
@@ -47,6 +47,7 @@ try {
         ? await captureCsv(source, rawDir, maxPages)
         : await captureBbbSitemap(source, rawDir, maxPages);
   const partial = capture.partial;
+  if (!partial) checkComplete(source.key, capture.sourceCount, await knownKeys(con, source.key));
   console.log(`[${runId}] ${source.key}: ${capture.sourceCount} rows reported, ${capture.pages} pages` + (partial ? " (partial run)" : ""));
 
   const glob = join(rawDir, "*.ndjson").replaceAll("\\", "/");

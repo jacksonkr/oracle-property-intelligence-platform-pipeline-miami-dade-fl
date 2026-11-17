@@ -108,9 +108,15 @@ export function rangeRequestUrl(layerUrl: string, oidField: string, range: OidRa
  * Content hash of a record's source attributes. The ObjectID is excluded: it is
  * a storage detail the publisher may renumber without the record changing.
  */
-export function rowHash(attributes: Record<string, unknown>, oidField: string): string {
+/**
+ * Content hash of one record. `ignore` names the publisher's row identifiers
+ * (ObjectID, GlobalID): they are reassigned whenever the publisher reloads its
+ * table, so including them would report every record as changed when nothing did.
+ */
+export function rowHash(attributes: Record<string, unknown>, ignore: string | string[]): string {
+  const skip = new Set(typeof ignore === "string" ? [ignore] : ignore);
   const keys = Object.keys(attributes)
-    .filter((k) => k !== oidField)
+    .filter((k) => !skip.has(k))
     .sort();
   const canonical = JSON.stringify(keys.map((k) => [k, attributes[k] ?? null]));
   return createHash("sha256").update(canonical).digest("hex");
@@ -121,6 +127,8 @@ export async function fetchRange(
   oidField: string,
   range: OidRange,
   hasGeometry: boolean,
+  /** Other publisher-assigned row identifiers to leave out of the content hash. */
+  surrogateFields: string[] = [],
 ): Promise<CapturedRow[]> {
   const sourceUrl = rangeRequestUrl(layerUrl, oidField, range);
   const body = await getJson(`${layerUrl}/query`, {
@@ -138,7 +146,7 @@ export async function fetchRange(
     ...feature.attributes,
     _lon: feature.geometry?.x ?? null,
     _lat: feature.geometry?.y ?? null,
-    _row_hash: rowHash(feature.attributes, oidField),
+    _row_hash: rowHash(feature.attributes, [oidField, ...surrogateFields]),
     _source_url: sourceUrl,
     _fetched_at: fetchedAt,
   }));
@@ -173,9 +181,10 @@ export async function captureArcgis(
   const bounds = await getOidBounds(source.url, info.oidField);
   const allRanges = planRanges(bounds.min, bounds.max, info.maxRecordCount);
   const ranges = options.maxPages ? allRanges.slice(0, options.maxPages) : allRanges;
+  const surrogates = info.fields.filter((f) => f.type === "esriFieldTypeGlobalID").map((f) => f.name);
   let done = 0;
   await mapConcurrent(ranges, options.concurrency, async (range, index) => {
-    const captured = await fetchRange(source.url, info.oidField, range, source.hasGeometry);
+    const captured = await fetchRange(source.url, info.oidField, range, source.hasGeometry, surrogates);
     const file = join(rawDir, `part-${String(index).padStart(6, "0")}.ndjson`);
     writeFileSync(file, captured.map((row) => JSON.stringify(row)).join("\n") + "\n");
     if (++done % 50 === 0 || done === ranges.length) console.log(`  ${done}/${ranges.length} pages`);

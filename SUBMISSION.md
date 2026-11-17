@@ -130,7 +130,7 @@ Requires Node 22.18 or later. No account is needed to ingest or build a snapshot
 
 ```bash
 npm ci
-npm test                     # 31 tests
+npm test                     # 33 tests
 npm run ingest:all           # read all five sources (about 3 minutes, about 1,010 requests)
 npm run runs                 # run history with added / changed / removed per source
 npm run snapshot             # Parquet tables, state, manifest and CAR under data/publish/<id>/

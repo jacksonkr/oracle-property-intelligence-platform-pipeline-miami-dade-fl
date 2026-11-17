@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { planRanges, rangeRequestUrl, rowHash } from "../src/arcgis.js";
+import { checkComplete } from "../src/store.js";
 
 describe("planRanges", () => {
   it("covers every ObjectID exactly once", () => {
@@ -37,6 +38,21 @@ describe("rowHash", () => {
 
   it("treats a missing value and an explicit null the same", () => {
     expect(rowHash({ OBJECTID: 1, A: undefined }, "OBJECTID")).toBe(rowHash({ OBJECTID: 2, A: null }, "OBJECTID"));
+  });
+});
+
+describe("publisher reloads", () => {
+  it("ignores row identifiers the publisher reassigns when it reloads a table", () => {
+    const before = { ObjectId: 865, GlobalID: "afaeb234", PermitNumber: "P1", Folio: "0101" };
+    const after = { ObjectId: 804, GlobalID: "a354fcac", PermitNumber: "P1", Folio: "0101" };
+    expect(rowHash(before, ["ObjectId", "GlobalID"])).toBe(rowHash(after, ["ObjectId", "GlobalID"]));
+  });
+
+  it("refuses a read that returns nothing, or under half of what was known", () => {
+    expect(() => checkComplete("contractors", 0, 22279)).toThrow(/no records/);
+    expect(() => checkComplete("contractors", 9000, 22279)).toThrow(/incomplete/);
+    expect(() => checkComplete("contractors", 22100, 22279)).not.toThrow();
+    expect(() => checkComplete("contractors", 500, 0)).not.toThrow();
   });
 });
 
