@@ -64,7 +64,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Visible run history | Met | "Records by source" on the live page |
 | Ingestion over time | In progress: a daily scheduled run. Runs so far found no change, which is recorded without publishing a new snapshot | `publications/checks.json` |
 | Slow or constrained sources documented | Met | "Sources and their limits" below |
-| No standing infrastructure cost | Met: one on-demand Lambda function, free pinning tier, free CI minutes; nothing runs while idle | "Cost" below |
+| No standing infrastructure cost | Met: one on-demand Lambda function, free pinning tier, free CI minutes. The only thing running while idle is an optional five-minute keep-warm schedule, inside the free allowance and removable with one setting | "Cost" below |
 | IPFS for artifacts, CIDv1 | Met | Manifest on the live page |
 | DuckDB for querying | Met | Query layer section; every result shows its SQL |
 | MCP access | Met: `/api/mcp`, nine tools (place lookup, property and permit search, one property, contractor search, one contractor, owner search, dataset description, read-only SQL) | MCP section |
@@ -171,7 +171,7 @@ npx cdk deploy               # prints the public URL
 | Part | Service | Standing cost |
 |---|---|---|
 | Storage and retrieval | IPFS, pinned on Filebase's free tier | None |
-| Query engine and hosting | One AWS Lambda function (2 GB, container image) with a function URL | None while idle; requests fall inside Lambda's monthly free allowance |
+| Query engine and hosting | One AWS Lambda function (2 GB, container image) with a function URL | Requests fall inside Lambda's monthly free allowance. A five-minute schedule keeps four instances ready during the review period (under 5% of the free allowance); set `keepWarmInstances` to 0 in `infra/bin/app.ts` for no idle activity at all |
 | Function image | Amazon ECR, about 550 MB | A few cents a month |
 | Model key | SSM Parameter Store, encrypted | None |
 | Scheduled ingestion | GitHub Actions on a public repository | None |

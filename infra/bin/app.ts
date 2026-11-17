@@ -9,7 +9,7 @@ const app = new App();
 new OracleWebStack(app, "MiamiDadeOracleWeb", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-2" },
   geminiKeyParameter: "/miami-dade-oracle/gemini-api-key",
-  // 0 = no schedule. Set to 4 to keep four instances ready during a review period (free-tier cost).
-  keepWarmInstances: 0,
+  // Keeps four instances ready during the review period (inside Lambda's free tier). 0 = no schedule.
+  keepWarmInstances: 4,
   description: "Miami-Dade Oracle pipeline: hosted runtime (one Lambda function with a public URL)",
 });
