@@ -109,7 +109,13 @@ export async function loadSource(
   partial: boolean,
 ): Promise<LoadResult> {
   const table = ident(`src_${source.key}`);
-  const key = ident(source.keyField);
+  // `_key` is the record's identity: the key fields joined, NULL when the first is missing.
+  const key = `"_key"`;
+  const [firstKey, ...restKeys] = source.keyFields.map(ident) as [string, ...string[]];
+  const keyExpr = restKeys.length
+    ? `CASE WHEN ${firstKey} IS NULL THEN NULL
+       ELSE concat_ws('|', ${firstKey}, ${restKeys.map((k) => `coalesce(${k}::VARCHAR, '')`).join(", ")}) END`
+    : `${firstKey}::VARCHAR`;
   const columns = [
     ...fields.map((f) => `${lit(f.name)}: ${lit(duckType(f.type))}`),
     `'_lon': 'DOUBLE'`,
@@ -120,7 +126,8 @@ export async function loadSource(
   ].join(", ");
 
   await con.run(`CREATE OR REPLACE TEMP TABLE stage_all AS
-    SELECT * FROM read_json(${lit(ndjsonGlob)}, format = 'newline_delimited', columns = {${columns}})`);
+    SELECT ${keyExpr} AS _key, *
+    FROM read_json(${lit(ndjsonGlob)}, format = 'newline_delimited', columns = {${columns}})`);
   await con.run(`CREATE OR REPLACE TEMP TABLE stage AS
     SELECT * FROM stage_all WHERE ${key} IS NOT NULL
     QUALIFY row_number() OVER (PARTITION BY ${key} ORDER BY ${ident(oidField)} DESC) = 1`);

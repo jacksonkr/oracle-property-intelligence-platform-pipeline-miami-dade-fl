@@ -13,8 +13,8 @@ export const sourceSchema = z.object({
   publisher: z.string().min(1),
   /** ArcGIS FeatureServer layer URL (no trailing slash, no `/query`). */
   layerUrl: z.string().url(),
-  /** Field that identifies the real-world record across runs. */
-  keyField: z.string().min(1),
+  /** Fields that together identify the real-world record across runs. */
+  keyFields: z.array(z.string().min(1)).min(1),
   /** True when the layer has point geometry to capture as WGS84 lon/lat. */
   hasGeometry: z.boolean(),
   /** Known limits of this source, shown in run history. */
@@ -38,7 +38,7 @@ export const SOURCES: Source[] = z.array(sourceSchema).parse([
     entity: "property (one row per folio: site address, owner, mailing address, year built, last sale, coordinates)",
     publisher: "Miami-Dade County Property Appraiser (PaGISView)",
     layerUrl: `${MDC}/PaGISView_gdb/FeatureServer/0`,
-    keyField: "FOLIO",
+    keyFields: ["FOLIO"],
     hasGeometry: true,
     limitations: [
       "Carries only the most recent sale (DOS_1 / PRICE_1), not full sale history.",
@@ -50,7 +50,7 @@ export const SOURCES: Source[] = z.array(sourceSchema).parse([
     entity: "building permit (one row per permit number: type, dates, folio, contractor, last inspection)",
     publisher: "Miami-Dade County Building Department (miamidade_permit_data)",
     layerUrl: `${MDC}/miamidade_permit_data/FeatureServer/0`,
-    keyField: "PermitNumber",
+    keyFields: ["PermitNumber"],
     hasGeometry: false,
     limitations: [
       "Covers permits issued by the county building department from 2020-01-01; municipal building departments keep their own systems.",
@@ -59,12 +59,16 @@ export const SOURCES: Source[] = z.array(sourceSchema).parse([
   },
   {
     key: "contractors",
-    entity: "contractor licence record held by the county (name, licence number, status, trade categories)",
+    entity: "county contractor licence record (one row per contractor, tradesman and trade class)",
     publisher: "Miami-Dade County Building Department (Contractor)",
     layerUrl: `${MDC}/Contractor/FeatureServer/0`,
-    keyField: "CONTRACTOR_NUMBER",
+    // One contractor number has a row per qualifying tradesman and trade class.
+    keyFields: ["CONTRACTOR_NUMBER", "TRADESMEN_NAME", "TRADE_CLASS"],
     hasGeometry: false,
-    limitations: ["County-held licence records only; state licence standing comes from DBPR."],
+    limitations: [
+      "County-held licence records only; state licence standing comes from DBPR.",
+      "One row per contractor, tradesman and trade class, so a contractor number can repeat.",
+    ],
   },
 ]);
 
