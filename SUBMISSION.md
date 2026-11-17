@@ -58,7 +58,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Business records | Met in part: 128,906 DBPR qualified-business registrations. The Sunbiz corporate registry is not loaded | `business` table through MCP `query_sql` |
 | Coordinates | Met: 100% of properties | Run summary |
 | Roof age or proxy, configurable threshold | Met: completed roof permit, else year built, else unknown; basis shown on every row | Explorer, decision 8 |
-| Reconcile duplicates | Met by official identifier only (folio, permit number, licence number); near-matches are not merged | Decision 10 |
+| Reconcile duplicates | Met by official identifier only (folio, permit number, licence number); near-matches are not merged. The entity browser shows the result: one contractor per licence number with its name spellings counted, one owner per exact name and mailing address | "Browse entities and relationships"; decision 10 |
 | Source provenance | Met: per row | Any result row, "county record" link |
 | Incremental ingestion | Met: per-record content hash, added/changed/removed per run, state restored from the last snapshot on a clean machine | Run history; `.github/workflows/ingest.yml` |
 | Visible run history | Met | "Records by source" on the live page |
@@ -67,7 +67,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | No standing infrastructure cost | Met: one on-demand Lambda function, free pinning tier, free CI minutes; nothing runs while idle | "Cost" below |
 | IPFS for artifacts, CIDv1 | Met | Manifest on the live page |
 | DuckDB for querying | Met | Query layer section; every result shows its SQL |
-| MCP access | Met: `/api/mcp`, six tools | MCP section |
+| MCP access | Met: `/api/mcp`, nine tools (place lookup, property and permit search, one property, contractor search, one contractor, owner search, dataset description, read-only SQL) | MCP section |
 | Agent access | Met | "Ask the agent" |
 | UI | Met | Live page |
 | Manifest per run with CID, name, size, codec, digest | Met | `publications/<snapshot>/manifest.json` |
@@ -76,7 +76,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | CAR for directory artifacts | Met: one CAR per snapshot, pinned and listed in the manifest | Manifest |
 | Each CID from two independent public gateways | Met at publish time and re-checkable live. `ipfs.io` and `dweb.link` no longer serve plain downloads, so other gateways are used | `publications/<snapshot>/retrieval.json`, decision 15 |
 | Radius queries, roofs over N years, open roofing permits, contractor | Met, including a filter on the contractor's state licence standing | Explorer, agent |
-| Not sold in 10+ years; out-of-area owners | Met through the agent, MCP and API (`minYearsSinceSale`, `ownerLocation`) | Agent example 3 |
+| Not sold in 10+ years; out-of-area owners | Met in the UI ("Not sold for at least" and "Owner's mailing address is outside the county"), the agent, MCP and API | Explorer filters; agent example 3 |
 
 ## Demo walkthrough
 
