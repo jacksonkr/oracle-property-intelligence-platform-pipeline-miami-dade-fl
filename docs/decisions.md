@@ -266,3 +266,13 @@ The snapshot was left in the history, not withdrawn. Publication history is appe
 its run table shows exactly what the publisher returned. Until the county finishes its
 reload, that snapshot has no county licence status on contractors; state licence standing
 from DBPR is unaffected.
+
+## 26. Publication history after submission is kept on its own branch
+
+The scheduled run records every publication and every no-change check in `publications/`.
+Writing those to the code branch would add a bot commit to this pull request every day. From
+this commit on, the run reads and writes `publications/` on the `ingest-history` branch of the
+same repository, and the live page reads the history from there. `publications/` on the code
+branch is the record as it stood at submission (seven snapshots); later snapshots and checks
+appear on the live page and on that branch.
+

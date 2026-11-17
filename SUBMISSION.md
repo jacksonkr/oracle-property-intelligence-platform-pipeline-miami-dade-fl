@@ -33,6 +33,11 @@ County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──�
         └── MCP endpoint /api/mcp        ┘
 ```
 
+`publications/` in this branch holds the manifests and retrieval records as they stood at
+submission. The daily run keeps recording later snapshots and checks on the
+[`ingest-history`](https://github.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/tree/ingest-history/publications)
+branch, which is what the live page shows (decision 26).
+
 ## What is loaded
 
 Counts in this file are from snapshot `20261117T151031Z`. The live page shows the current

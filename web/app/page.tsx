@@ -40,7 +40,8 @@ const n = (value: number | string | null | undefined) => (value === null || valu
 const when = (iso: string | null | undefined) => (iso ? `${iso.replace("T", " ").slice(0, 19)} UTC` : "—");
 const bytes = (size: number) => (size >= 1e6 ? `${(size / 1e6).toFixed(1)} MB` : size >= 1e3 ? `${(size / 1e3).toFixed(1)} kB` : `${size} B`);
 const gateway = READ_GATEWAYS[0];
-const REPO = "https://github.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/blob/miami-dade-pipeline";
+// Publication records live on the branch the scheduled run writes to.
+const REPO = "https://github.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/blob/ingest-history";
 
 const FACT_LABELS: Record<string, string> = {
   properties_with_coordinates: "Properties with coordinates",

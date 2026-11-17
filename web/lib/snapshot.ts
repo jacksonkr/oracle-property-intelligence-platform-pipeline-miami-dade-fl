@@ -7,7 +7,7 @@
  */
 const PUBLICATIONS_URL =
   process.env.PUBLICATIONS_URL ??
-  "https://raw.githubusercontent.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/miami-dade-pipeline/publications";
+  "https://raw.githubusercontent.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/ingest-history/publications";
 
 /** Gateways tried in order for server-side reads. Bytes are checked against the manifest. */
 export const READ_GATEWAYS = ["https://ipfs.filebase.io/ipfs", "https://gateway.pinata.cloud/ipfs"];
