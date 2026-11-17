@@ -13,6 +13,8 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  *   at query time, so identical source data always produces identical tables.
  * - Every row keeps the source request it came from (`source_url`).
  * - Derived values say what they are derived from (`roof_basis`, `status`).
+ * - Aggregates must be deterministic: use min/max, never any_value, or two
+ *   builds of the same data produce different files and different CIDs.
  */
 
 const ms = (column: string) => `make_timestamp(${column} * 1000)::DATE`;
@@ -151,8 +153,8 @@ WITH names AS (
 ),
 county AS (
   SELECT CONTRACTOR_NUMBER AS contractor_number,
-         any_value(CONTRACTOR_STATUS) AS county_status,
-         any_value(_source_url) AS county_source_url
+         min(CONTRACTOR_STATUS) AS county_status,
+         min(_source_url) AS county_source_url
   FROM src_contractors GROUP BY 1
 )
 SELECT
@@ -169,7 +171,7 @@ SELECT
   nullif(regexp_extract(p.contractor_number, '^(C[A-Z]C)[A-Z]?[0-9]+$', 1), '') AS state_licence_class,
   c.county_status,
   c.county_source_url,
-  any_value(p.source_url)                  AS source_url
+  min(p.source_url)                  AS source_url
 FROM permit p LEFT JOIN county c USING (contractor_number)
 WHERE p.contractor_number IS NOT NULL
 GROUP BY p.contractor_number, c.county_status, c.county_source_url;
@@ -180,12 +182,12 @@ const OWNER = `
 -- one owner stay separate: merging them would be a guess.
 CREATE OR REPLACE TABLE owner AS
 SELECT owner_id,
-       any_value(owner_1) AS name,
-       any_value(mailing_address) AS mailing_address,
-       any_value(mailing_city) AS mailing_city,
-       any_value(mailing_state) AS mailing_state,
-       any_value(mailing_zip) AS mailing_zip,
-       any_value(owner_location) AS owner_location,
+       min(owner_1) AS name,
+       min(mailing_address) AS mailing_address,
+       min(mailing_city) AS mailing_city,
+       min(mailing_state) AS mailing_state,
+       min(mailing_zip) AS mailing_zip,
+       min(owner_location) AS owner_location,
        count(*) AS properties
 FROM property WHERE owner_1 IS NOT NULL
 GROUP BY owner_id;

@@ -69,3 +69,22 @@ always means the data changed.
 Properties by folio, permits by permit number, contractors by the licence number printed
 on the permit (name variants are counted, not merged), owners by exact name plus mailing
 address. Near-matches such as "USA" and "U S A" stay separate: merging them would be a guess.
+
+## 11. Content IDs are computed locally, before any upload
+
+`npm run snapshot` builds the IPFS directory DAG itself (CIDv1, raw leaves, the same
+settings as `ipfs add --cid-version=1`) and writes it to one CAR file. The upload is then
+a block transfer that any node can check. Verified against a reference Kubo 0.43.1 node
+running offline: it imported the CAR, pinned the same root, and independently computed the
+same CID for every file, the directory, the CAR and the manifest.
+
+A table that did not change keeps its CID from one snapshot to the next; only `coverage.json`
+(which carries the snapshot time) and the directory root differ. This required replacing
+`any_value()` in the model with `min()`: the arbitrary pick made two builds of identical
+data produce different Parquet files.
+
+## 12. The manifest is published beside the snapshot, not inside it
+
+The manifest names the root directory's CID, so it cannot live under that root. It is its
+own file with its own CID, recorded in `publications/` in Git along with the previous
+snapshot's manifest and root CIDs.
