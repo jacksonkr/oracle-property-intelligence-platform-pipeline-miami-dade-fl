@@ -4,6 +4,8 @@
 
 A second copy of the same build runs at https://miami-dade-oracle.vercel.app.
 
+**Demo video:** https://github.com/jacksonkr/oracle-property-intelligence-platform-pipeline-miami-dade-fl/releases/download/demo-video-2026-11-17/miami-dade-pipeline-demo.mp4 (4 min 29 s; on-screen captions, no narration; recorded by script against the live site on 2026-11-17, played at 1.2x)
+
 The assignment is in [`README.md`](./README.md). This file explains what was built, how to
 check it, and where it falls short. Decisions and their reasons are in
 [`docs/decisions.md`](./docs/decisions.md).
