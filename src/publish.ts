@@ -134,9 +134,13 @@ const targets = [
   { name: "snapshot.car", cid: manifest.car.cid, codec: "file", path: manifest.car.cid, size: manifest.car.size, sha256: manifest.car.sha256 },
   { name: "manifest.json", cid: manifestCid, codec: "file", path: manifestCid, size: manifestSize, sha256: await sha256File(manifestPath) },
 ];
-// A re-run keeps checks that already passed and retries only the rest.
 const retrievalPath = join("publications", snapshotId, "retrieval.json");
-const earlier: Check[] = existsSync(retrievalPath) ? JSON.parse(readFileSync(retrievalPath, "utf8")).checks : [];
+// A CID names fixed bytes, so a match recorded for an earlier snapshot still holds:
+// an unchanged table is not downloaded again through public gateways.
+const earlier: Check[] = (existsSync("publications") ? readdirSync("publications") : [])
+  .map((id) => join("publications", id, "retrieval.json"))
+  .filter((path) => existsSync(path))
+  .flatMap((path) => JSON.parse(readFileSync(path, "utf8")).checks as Check[]);
 for (const target of targets) {
   const passed = earlier.find((c) => c.cid === target.cid && c.independentMatches >= 2);
   if (passed) {
