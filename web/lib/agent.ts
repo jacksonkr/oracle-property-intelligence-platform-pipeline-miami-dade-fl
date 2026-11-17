@@ -16,13 +16,13 @@ import { TOOLS } from "./tools";
 
 // Tried in order. Measured on the free tier: the newest models time out or return
 // "high demand", so the default is the one that answers a tool call in about a second.
-const MODELS = (process.env.AGENT_MODELS ?? "gemini-3.5-flash-lite,gemini-3.5-flash").split(",").map((m) => m.trim());
-// A healthy answer takes 4 to 20 seconds; a longer wait is a hung call, better abandoned and retried.
-const ATTEMPT_TIMEOUT_MS = 30_000;
+const MODELS = (process.env.AGENT_MODELS ?? "gemini-3.5-flash-lite,gemini-3-flash-preview,gemini-3.5-flash").split(",").map((m) => m.trim());
+// A healthy answer takes 4 to 25 seconds; a longer wait is a hung call, better abandoned for the next model.
+const ATTEMPT_TIMEOUT_MS = 40_000;
 /** The whole question must finish inside the function's 120 s limit. */
 const BUDGET_MS = 100_000;
-/** The free model tier often answers "high demand" or hangs for a few seconds, so the list of models is tried up to three times. */
-const ATTEMPTS = [...MODELS, ...MODELS, ...MODELS];
+/** The free model tier often answers "high demand" or hangs for a few seconds, so the list of models is tried up to twice, within the budget. */
+const ATTEMPTS = [...MODELS, ...MODELS];
 
 const SYSTEM = `You help a roofing company find leads in Miami-Dade County, Florida, using a published dataset of county property, permit and contractor records.
 

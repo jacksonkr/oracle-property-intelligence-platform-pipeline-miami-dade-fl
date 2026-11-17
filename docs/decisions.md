@@ -152,6 +152,14 @@ returned "high demand" errors, `gemini-3.5-flash` took 8 to 16 seconds per call 
 a 50-second limit and no silent retries, and returns a plain error if both fail. The model
 list is an environment variable (`AGENT_MODELS`).
 
+Revised on 2026-11-17 after repeated failures during testing: flash-lite reported "high
+demand" and `gemini-3.5-flash` hung until its limit. Every free model the key can call was
+timed on a real tool-calling question. The chain is now flash-lite, `gemini-3-flash-preview`,
+then `gemini-3.5-flash`; an attempt is abandoned after 40 seconds; and the list is tried up
+to twice inside a 100-second budget, so the function's 120-second limit is never hit. A free
+tier can still be busy on every model at once; the page then says so and the search tools
+keep working.
+
 ## 20. Property results are one row per street address
 
 A condo building is one roof. Listing each unit put 88 rows for one address at the top of an
