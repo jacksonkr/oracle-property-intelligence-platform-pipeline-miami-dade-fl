@@ -249,8 +249,9 @@ did two wrong things, and snapshot `20261117T152027Z` records both:
   changed. After that a reload with no content change produces no deltas and no new CID.
 - **22,279 contractor records were reported as removed**, because the layer was empty at
   that moment. Fix: a full read that returns nothing, or under half the records already
-  known, stops the run with an error. Nothing is recorded, nothing is published, and the
-  last good snapshot stays in place until the publisher is whole again. The threshold is a
+  known, is refused for that source only. The refusal is written to the run history, the
+  source's previous rows and state are kept, and the other sources are still read, so one
+  publisher's maintenance does not stop the pipeline. The threshold is a
   judgement: a licence table does not lose half its rows overnight.
 
 The snapshot was left in the history, not withdrawn. Publication history is append-only, and

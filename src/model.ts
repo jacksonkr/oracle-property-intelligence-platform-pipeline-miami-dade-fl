@@ -287,5 +287,9 @@ GROUP BY owner_id;
 `;
 
 export async function buildModel(con: DuckDBConnection): Promise<void> {
+  // County licence status is enrichment. If the county's contractor layer has never been read
+  // into this store (it was empty when read), the model is built without it and says so by
+  // leaving county_status empty.
+  await con.run(`CREATE TABLE IF NOT EXISTS src_contractors (CONTRACTOR_NUMBER VARCHAR, CONTRACTOR_STATUS VARCHAR, _source_url VARCHAR)`);
   for (const sql of [PERMIT, PROPERTY, CONTRACTOR, OWNER, PLACE]) await con.run(sql);
 }

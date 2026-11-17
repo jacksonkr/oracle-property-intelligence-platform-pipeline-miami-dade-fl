@@ -5,7 +5,7 @@ import { captureArcgis } from "./arcgis.js";
 import { COUNTY, getSource } from "./catalog.js";
 import { captureCsv } from "./csv.js";
 import { captureBbbSitemap } from "./sitemap.js";
-import { checkComplete, knownKeys, lit, loadSource, openStore } from "./store.js";
+import { checkComplete, IncompleteRead, knownKeys, lit, loadSource, openStore } from "./store.js";
 
 /**
  * One pipeline run for one source: capture -> load -> record deltas.
@@ -47,7 +47,24 @@ try {
         ? await captureCsv(source, rawDir, maxPages)
         : await captureBbbSitemap(source, rawDir, maxPages);
   const partial = capture.partial;
-  if (!partial) checkComplete(source.key, capture.sourceCount, await knownKeys(con, source.key));
+  if (!partial) {
+    try {
+      checkComplete(source.key, capture.sourceCount, await knownKeys(con, source.key));
+    } catch (error) {
+      if (!(error instanceof IncompleteRead)) throw error;
+      // Record the refusal in the run history and leave this source's rows and state untouched.
+      // The run ends without an error so the other sources are still read.
+      const seconds = (Date.now() - startedAt.getTime()) / 1000;
+      await con.run(`INSERT INTO pipeline_run_source VALUES (
+        ${lit(runId)}, ${lit(source.key)}, ${lit(source.url)}, ${lit(capture.lastEditAt)},
+        ${capture.sourceCount}, 0, 0, 0, 0, 0, 0, NULL, 0, ${capture.pages}, ${seconds}, TRUE,
+        ${lit(`REFUSED: ${error.message}`)})`);
+      await con.run(`UPDATE pipeline_run SET status = 'REFUSED',
+        finished_at = ${lit(new Date().toISOString())} WHERE run_id = ${lit(runId)}`);
+      console.warn(`[${runId}] ${error.message}`);
+      process.exit(0);
+    }
+  }
   console.log(`[${runId}] ${source.key}: ${capture.sourceCount} rows reported, ${capture.pages} pages` + (partial ? " (partial run)" : ""));
 
   const glob = join(rawDir, "*.ndjson").replaceAll("\\", "/");

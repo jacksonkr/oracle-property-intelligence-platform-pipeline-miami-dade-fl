@@ -103,12 +103,14 @@ const STATE_COLUMNS = `_key VARCHAR, _row_hash VARCHAR, _first_seen_run VARCHAR,
  * would publish a moment of the publisher's maintenance as if it were fact.
  */
 export const MIN_SHARE_OF_KNOWN = 0.5;
+/** A full read that was refused as incomplete. Only that source stops; the others carry on. */
+export class IncompleteRead extends Error {}
 export function checkComplete(sourceKey: string, reported: number, known: number): void {
-  if (reported === 0) throw new Error(`${sourceKey}: the publisher returned no records; nothing was recorded`);
+  if (reported === 0) throw new IncompleteRead(`${sourceKey}: the publisher returned no records, so its previous state was kept`);
   if (reported < known * MIN_SHARE_OF_KNOWN) {
-    throw new Error(
+    throw new IncompleteRead(
       `${sourceKey}: the publisher returned ${reported} records where ${known} were known. ` +
-        `That is less than ${MIN_SHARE_OF_KNOWN * 100}%, so the read is treated as incomplete and nothing was recorded`,
+        `That is less than ${MIN_SHARE_OF_KNOWN * 100}%, so the read is treated as incomplete and its previous state was kept`,
     );
   }
 }
