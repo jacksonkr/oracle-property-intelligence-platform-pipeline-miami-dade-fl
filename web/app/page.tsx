@@ -1,6 +1,9 @@
+import { headers } from "next/headers";
+import { Agent } from "./components/Agent";
 import { Explorer } from "./components/Explorer";
 import { VerifyButton } from "./components/VerifyButton";
 import { getLatest, getPublications, getSnapshotJson, READ_GATEWAYS } from "@/lib/snapshot";
+import { TOOLS } from "@/lib/tools";
 
 // Always read the current publication record: a new snapshot shows up without a redeploy.
 export const dynamic = "force-dynamic";
@@ -56,6 +59,8 @@ export default async function Page() {
     getSnapshotJson<SourceRun[]>(manifest.root.cid, "runs.json"),
   ]);
   const history = [...publications].reverse();
+  const host = (await headers()).get("host") ?? "miami-dade-oracle.vercel.app";
+  const mcpUrl = `${host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https"}://${host}/api/mcp`;
 
   return (
     <main>
@@ -73,6 +78,8 @@ export default async function Page() {
           <a href="#manifest">Artifact manifest</a>
           <a href="#history">Publication history</a>
           <a href="#explore">Explore</a>
+          <a href="#agent">Ask the agent</a>
+          <a href="#mcp">MCP</a>
         </nav>
       </header>
 
@@ -335,6 +342,54 @@ export default async function Page() {
           or it was never inspected. County permits are available from 2020 onward.
         </div>
         <Explorer />
+      </section>
+
+      <section className="panel" id="agent">
+        <h2>Ask the agent</h2>
+        <p className="lead">
+          Ask a roofing-lead question in plain language. The model only chooses which tools to call and words the answer; every count and
+          record comes from SQL over the published snapshot, and the tool calls are shown under the answer so it can be checked.
+        </p>
+        <Agent />
+      </section>
+
+      <section className="panel" id="mcp">
+        <h2>MCP endpoint</h2>
+        <p className="lead">
+          The same tools the agent uses are served over the Model Context Protocol (Streamable HTTP), so another agent or the roofing CRM
+          can query this dataset without any change to the data model.
+        </p>
+        <code className="block">{mcpUrl}</code>
+        <h3>Connect a client</h3>
+        <code className="block">{`{ "mcpServers": { "miami-dade-oracle": { "type": "http", "url": "${mcpUrl}" } } }`}</code>
+        <h3>Tools</h3>
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TOOLS.map((tool) => (
+                <tr key={tool.name}>
+                  <td className="mono">{tool.name}</td>
+                  <td>{tool.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <h3>Try it from a terminal</h3>
+        <code className="block">
+          {`curl -s ${mcpUrl} -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_sql","arguments":{"sql":"SELECT roof_basis, count(*) AS n FROM property GROUP BY 1"}}}'`}
+        </code>
+        <p className="muted" style={{ fontSize: 13.5 }}>
+          <span className="mono">query_sql</span> accepts a single SELECT, checked by DuckDB&apos;s parser. The engine can read only the snapshot
+          files: it cannot fetch URLs, load extensions or change its own settings.
+        </p>
       </section>
     </main>
   );

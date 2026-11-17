@@ -68,11 +68,12 @@ export async function searchProperties(raw: PropertySearchInput) {
   }
   const filter = where.join("\n    AND ");
 
-  const total = await query<{ matches: string; roof_from_permit: string; roof_from_year_built: string; roof_unknown: string }>(
+  const total = await query<{ matches: string; roof_from_permit: string; roof_from_year_built: string; roof_unknown: string; addresses: string }>(
     `SELECT count(*) AS matches,
             count(*) FILTER (roof_basis = 'roof_permit') AS roof_from_permit,
             count(*) FILTER (roof_basis = 'year_built') AS roof_from_year_built,
-            count(*) FILTER (roof_basis = 'unknown') AS roof_unknown
+            count(*) FILTER (roof_basis = 'unknown') AS roof_unknown,
+            count(DISTINCT (site_address, site_zip)) AS addresses
      FROM property WHERE ${filter}`,
     params,
   );
@@ -82,8 +83,11 @@ export async function searchProperties(raw: PropertySearchInput) {
             year_built, roof_year, roof_basis, roof_permit_number, roof_permit_date,
             year(current_date) - roof_year AS roof_age_years,
             last_sale_date, date_sub('year', last_sale_date, current_date) AS years_since_sale,
-            lat, lon, round(${DISTANCE}, 2) AS miles, source_url, fetched_at
+            lat, lon, round(${DISTANCE}, 2) AS miles, source_url, fetched_at,
+            count(*) OVER (PARTITION BY site_address, site_zip) AS matches_at_address
      FROM property WHERE ${filter}
+     -- One row per street address: a condo building is one roof, not one lead per unit.
+     QUALIFY row_number() OVER (PARTITION BY site_address, site_zip ORDER BY folio) = 1
      ORDER BY roof_age_years DESC NULLS LAST, miles, folio
      LIMIT ${input.limit}`,
     params,

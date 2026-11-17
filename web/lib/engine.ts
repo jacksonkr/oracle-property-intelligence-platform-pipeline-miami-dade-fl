@@ -72,6 +72,13 @@ async function load(): Promise<Engine> {
     const file = join(dir, `${table}.parquet`).replaceAll("\\", "/").replaceAll("'", "''");
     await con.run(`CREATE VIEW ${table} AS SELECT * FROM read_parquet('${file}')`);
   }
+  // Lock the engine down before any outside SQL can reach it: it may read only the
+  // snapshot directory, cannot fetch URLs or load extensions, and its settings are frozen.
+  const allowed = dir.replaceAll("\\", "/").replaceAll("'", "''");
+  await con.run(`SET memory_limit = '1GB'`);
+  await con.run(`SET allowed_directories = ['${allowed}']`);
+  await con.run(`SET enable_external_access = false`);
+  await con.run(`SET lock_configuration = true`);
   return { con, publication, manifest, loadedInMs: Date.now() - started };
 }
 
@@ -113,6 +120,33 @@ export async function query<T = Record<string, unknown>>(
   const reader = await con.runAndReadAll(sql, params as never);
   return {
     rows: reader.getRowObjectsJson() as T[],
+    sql: sql.replace(/\s+/g, " ").trim(),
+    ms: Date.now() - started,
+    snapshot: { id: publication.snapshot_id, root_cid: publication.root_cid, manifest_cid: publication.manifest_cid },
+  };
+}
+
+const SELECT_STATEMENT = 1; // DuckDB StatementType.SELECT
+
+/**
+ * Run SQL written by someone else (an agent or an MCP client).
+ *
+ * Two independent guards: the statement must be a single SELECT, checked by
+ * DuckDB's own parser, and the engine itself is locked to the snapshot
+ * directory. Results are capped so a wide query cannot flood the caller.
+ */
+export async function queryReadOnly(sql: string, maxRows = 200): Promise<QueryResult & { truncated: boolean }> {
+  const { con, publication } = await getEngine();
+  const extracted = await con.extractStatements(sql);
+  if (extracted.count !== 1) throw new Error("Send exactly one SQL statement");
+  const prepared = await extracted.prepare(0);
+  if (prepared.statementType !== SELECT_STATEMENT) throw new Error("Only SELECT (or WITH ... SELECT) statements are allowed");
+  const started = Date.now();
+  const reader = await con.runAndReadAll(`SELECT * FROM (${sql.trim().replace(/;\s*$/, "")}) LIMIT ${maxRows + 1}`);
+  const rows = reader.getRowObjectsJson() as Record<string, unknown>[];
+  return {
+    rows: rows.slice(0, maxRows),
+    truncated: rows.length > maxRows,
     sql: sql.replace(/\s+/g, " ").trim(),
     ms: Date.now() - started,
     snapshot: { id: publication.snapshot_id, root_cid: publication.root_cid, manifest_cid: publication.manifest_cid },

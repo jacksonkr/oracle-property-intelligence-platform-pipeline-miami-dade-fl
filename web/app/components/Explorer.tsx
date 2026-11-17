@@ -192,12 +192,14 @@ export function Explorer() {
 
       {active && (
         <p className="muted" style={{ margin: "4px 0" }}>
-          Showing {num(active.shown)} of {num(active.summary.matches)} matches · answered in {active.ms} ms by DuckDB over snapshot{" "}
+          Showing {num(active.shown)} {tab === "roofs" ? "addresses" : "permits"} of {num(active.summary.matches)} matching{" "}
+          {tab === "roofs" ? "properties" : "permits"} · answered in {active.ms} ms by DuckDB over snapshot{" "}
           <span className="mono">{active.snapshot.id}</span>
           {tab === "roofs" && roofs && (
             <>
               {" "}
-              · roof year from a completed roof permit: {num(roofs.summary.roof_from_permit)}, from year built: {num(roofs.summary.roof_from_year_built)}
+              · roof year dated by a completed roof permit: {num(roofs.summary.roof_from_permit)}, by year built: {num(roofs.summary.roof_from_year_built)}{" "}
+              (county permits start in 2020, so a roof older than 6 years can only be dated by year built)
             </>
           )}
         </p>
@@ -224,8 +226,9 @@ export function Explorer() {
               {roofs.rows.map((row) => (
                 <tr key={String(row.folio)}>
                   <td>
-                    {row.site_address ?? "No site address"} {row.site_unit ?? ""}
+                    {row.site_address ?? "No site address"}
                     <div className="muted mono">{row.folio}</div>
+                    {Number(row.matches_at_address) > 1 && <div className="muted">{num(row.matches_at_address)} matching units at this address</div>}
                   </td>
                   <td className="num">{row.roof_year}</td>
                   <td>

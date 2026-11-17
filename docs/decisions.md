@@ -123,3 +123,37 @@ content. Stamping every row with the latest run's time made a re-read of identic
 produce different files and a new CID for every table. When each source was last re-read
 is in the run history, not on the rows. Verified with two full back-to-back ingests: every
 data table kept its CID; only the run history and coverage files changed.
+
+## 17. One tool catalogue for the page's agent and the MCP endpoint
+
+`web/lib/tools.ts` defines each capability once: name, description, Zod input schema and a
+`run` function that calls the shared query layer. The agent (Vercel AI SDK) and `/api/mcp`
+(Streamable HTTP) both register that same list, so they cannot give different answers.
+
+The model decides which tools to call and words the reply. Every count and record comes from
+SQL over the snapshot, and the tool calls (input, SQL, snapshot ID, rows) are returned beside
+the answer so it can be checked against the records.
+
+## 18. Outside SQL is guarded twice
+
+`query_sql` lets an agent or MCP client run its own query. Two independent guards:
+DuckDB's parser must report exactly one statement of type SELECT, and the engine is locked
+before any request reaches it (`allowed_directories` = the snapshot folder,
+`enable_external_access = false`, `lock_configuration = true`). Tested: reading other
+files, fetching URLs, loading extensions, attaching databases and changing settings are all
+refused. A write into the snapshot folder would pass the engine lock, which is why the
+statement-type check is not optional.
+
+## 19. Agent model: the one that answers on the free tier
+
+Measured against the Gemini API with a free key: the newest flash models timed out or
+returned "high demand" errors, `gemini-3.5-flash` took 8 to 16 seconds per call and
+`gemini-3.5-flash-lite` about one second. The agent tries flash-lite, then flash, each with
+a 50-second limit and no silent retries, and returns a plain error if both fail. The model
+list is an environment variable (`AGENT_MODELS`).
+
+## 20. Property results are one row per street address
+
+A condo building is one roof. Listing each unit put 88 rows for one address at the top of an
+"oldest roofs" search. Results now return one row per address with the number of matching
+units; the total still counts properties.
