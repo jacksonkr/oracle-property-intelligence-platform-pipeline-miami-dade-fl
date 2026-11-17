@@ -1,6 +1,6 @@
 # Oracle Property Intelligence Platform Pipeline - Miami-Dade County, FL
 
-> **Submission:** live at https://miami-dade-oracle.vercel.app. What was built, how to check it and where it falls short: [`SUBMISSION.md`](./SUBMISSION.md). Decisions: [`docs/decisions.md`](./docs/decisions.md).
+> **Submission:** live at https://pkvjvwftv5xgocgck3akhh4qmq0ufdpe.lambda-url.us-east-2.on.aws/ (AWS Lambda). What was built, how to check it and where it falls short: [`SUBMISSION.md`](./SUBMISSION.md). Decisions: [`docs/decisions.md`](./docs/decisions.md).
 
 ## Context
 

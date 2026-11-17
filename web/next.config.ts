@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // A self-contained server build: this is what runs inside the Lambda container image.
+  output: "standalone",
   // DuckDB ships a native binary: load it with Node's require instead of bundling it.
   serverExternalPackages: ["@duckdb/node-api", "@duckdb/node-bindings"],
   // The binding loads libduckdb.so from its platform package at runtime. File tracing

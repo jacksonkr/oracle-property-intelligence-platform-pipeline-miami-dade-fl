@@ -40,10 +40,22 @@ export interface Manifest {
   car: Artifact & { roots: string[]; blocks: number };
 }
 
+// A small in-memory cache, five minutes per URL. It replaces the framework's fetch
+// cache, which writes to disk and so cannot work on a read-only filesystem (Lambda).
+const TTL_MS = 5 * 60_000;
+const cached = new Map<string, { at: number; value: Promise<unknown> }>();
+
 async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { next: { revalidate: 300 } });
-  if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
-  return (await response.json()) as T;
+  const hit = cached.get(url);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value as Promise<T>;
+  const value = (async () => {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
+    return (await response.json()) as T;
+  })();
+  cached.set(url, { at: Date.now(), value });
+  value.catch(() => cached.delete(url));
+  return value;
 }
 
 export async function getPublications(): Promise<Publication[]> {

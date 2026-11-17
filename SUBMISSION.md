@@ -1,6 +1,8 @@
 # Miami-Dade Oracle pipeline: submission
 
-**Live runtime:** https://miami-dade-oracle.vercel.app (public, no login)
+**Live runtime:** https://pkvjvwftv5xgocgck3akhh4qmq0ufdpe.lambda-url.us-east-2.on.aws/ (AWS Lambda in us-east-2, public, no login)
+
+A second copy of the same build runs at https://miami-dade-oracle.vercel.app.
 
 The assignment is in [`README.md`](./README.md). This file explains what was built, how to
 check it, and where it falls short. Decisions and their reasons are in
@@ -11,7 +13,8 @@ check it, and where it falls short. Decisions and their reasons are in
 It reads Miami-Dade County's public property, permit and contractor records, loads them into
 DuckDB, derives a roofing-lead model, and publishes each snapshot to IPFS as content-addressed
 Parquet files with a manifest. A hosted page, an agent and an MCP endpoint all query those
-published files. Nothing is hosted between requests: no database server, no queue, no VM.
+published files. The runtime is a single AWS Lambda function defined in CDK. Nothing runs
+between requests: no database server, no queue, no VM.
 
 ```
 County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──▶ DuckDB working store
@@ -22,7 +25,7 @@ County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──�
                                                                           │
                  publications/ in Git  ◀── manifest + retrieval evidence ──┘
                           │
-   hosted page ── reads the record from Git, the tables from IPFS by CID ──▶ DuckDB in a server function
+   Lambda function ── reads the record from Git, the tables from IPFS by CID ──▶ DuckDB in the function
         ├── map and radius search        ┐
         ├── agent (Vercel AI SDK)        ├── one query layer, one tool catalogue
         └── MCP endpoint /api/mcp        ┘
@@ -60,7 +63,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Visible run history | Met | "Records by source" on the live page |
 | Ingestion over time | In progress: a daily scheduled run. Runs so far found no change, which is recorded without publishing a new snapshot | `publications/checks.json` |
 | Slow or constrained sources documented | Met | "Sources and their limits" below |
-| No standing infrastructure cost | Met: free static hosting, on-demand functions, free pinning tier, free CI minutes | "Cost" below |
+| No standing infrastructure cost | Met: one on-demand Lambda function, free pinning tier, free CI minutes; nothing runs while idle | "Cost" below |
 | IPFS for artifacts, CIDv1 | Met | Manifest on the live page |
 | DuckDB for querying | Met | Query layer section; every result shows its SQL |
 | MCP access | Met: `/api/mcp`, six tools | MCP section |
@@ -115,7 +118,7 @@ SELECT roof_basis, count(*) FROM read_parquet('https://ipfs.filebase.io/ipfs/<ro
 Call the MCP endpoint:
 
 ```bash
-curl -s https://miami-dade-oracle.vercel.app/api/mcp \
+curl -s https://pkvjvwftv5xgocgck3akhh4qmq0ufdpe.lambda-url.us-east-2.on.aws/api/mcp \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"query_sql","arguments":{"sql":"SELECT count(*) FROM permit WHERE is_roofing AND is_open"}}}'
 ```
@@ -149,13 +152,27 @@ npm run record-check         # changed=true means a new snapshot is due
 
 The web app is in `web/` (`npm ci && npm run dev`). The agent needs `GOOGLE_GENERATIVE_AI_API_KEY`.
 
+## Deploy the runtime to AWS
+
+The runtime is one CDK stack in `infra/`: a Lambda function built from `web/Dockerfile`, with
+a public function URL, a one-week log group, and permission to read exactly one SSM parameter.
+Requires Docker and AWS credentials for your own account.
+
+```bash
+aws ssm put-parameter --name /miami-dade-oracle/gemini-api-key --type SecureString --value <key> --region us-east-2
+cd infra && npm ci
+npx cdk bootstrap            # once per account and Region
+npx cdk deploy               # prints the public URL
+```
+
 ## Cost
 
 | Part | Service | Standing cost |
 |---|---|---|
 | Storage and retrieval | IPFS, pinned on Filebase's free tier | None |
-| Query engine | DuckDB inside an on-demand server function | None; runs only during a request |
-| Hosting | Vercel Hobby | None |
+| Query engine and hosting | One AWS Lambda function (2 GB, container image) with a function URL | None while idle; requests fall inside Lambda's monthly free allowance |
+| Function image | Amazon ECR, about 550 MB | A few cents a month |
+| Model key | SSM Parameter Store, encrypted | None |
 | Scheduled ingestion | GitHub Actions on a public repository | None |
 | Language model | Gemini API free tier | None |
 
@@ -177,11 +194,12 @@ roof permit exists.
 
 ## Engineering standards followed
 
-TypeScript throughout, Zod for every input, the Vercel AI SDK for all model calls, Vitest, and
-GitHub Actions for checks and scheduled runs. Two deliberate departures from the team kit:
+TypeScript throughout, Zod for every input, the Vercel AI SDK for all model calls, Vitest,
+AWS Lambda in us-east-2 defined with CDK, and GitHub Actions for checks. Two deliberate
+departures from the team kit:
 
-- **Hosting is Vercel and GitHub Actions, not AWS with CDK.** The brief asks for no standing
-  cost, and this build uses only free tiers.
+- **Scheduled ingestion runs on GitHub Actions, not on AWS.** It needs about 1.5 GB of
+  scratch disk for two minutes a day, which a free CI runner provides at no cost.
 - **Publication follows this repository's README** (a manifest of query tables retrievable by
   CID), not the kit's Atlas registry, which needs a maintainer merge. See decision 5.
 
@@ -190,7 +208,8 @@ GitHub Actions for checks and scheduled runs. Two deliberate departures from the
 ```
 src/            ingestion, model, snapshot, publish, restore (the pipeline)
 tests/          unit tests for paging, hashing and the derivation rules
-web/            the hosted page, API routes, agent and MCP endpoint
+web/            the hosted page, API routes, agent and MCP endpoint (and the Dockerfile for Lambda)
+infra/          AWS CDK app: the Lambda function and its public URL
 publications/   one folder per published snapshot: manifest.json, retrieval.json; index.json; checks.json
 docs/           decisions.md
 .github/        check.yml (types, tests, build), ingest.yml (daily scheduled run)

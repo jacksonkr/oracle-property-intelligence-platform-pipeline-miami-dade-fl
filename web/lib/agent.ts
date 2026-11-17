@@ -1,4 +1,5 @@
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { generateText, isStepCount, tool } from "ai";
 import { TOOLS } from "./tools";
 
@@ -32,6 +33,30 @@ Rules:
 - Permit status is derived from inspection dates because the county publishes none. Say "no approved final inspection on record" rather than "open" as a legal fact.
 - End with a short "Assumptions and gaps" line listing anything you assumed and any data the question needed that is missing.
 - Be concise. Use short lists, not long paragraphs.`;
+
+/**
+ * The model key. On AWS it is an encrypted SSM parameter named by
+ * GEMINI_KEY_PARAMETER, read once per warm instance, so the key is never in the
+ * function's configuration. Elsewhere it comes from the environment.
+ */
+let keyPromise: Promise<string> | null = null;
+function modelKey(): Promise<string> {
+  keyPromise ??= (async () => {
+    const parameter = process.env.GEMINI_KEY_PARAMETER;
+    if (!parameter) {
+      const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+      if (!key) throw new Error("No language model key is configured");
+      return key;
+    }
+    const result = await new SSMClient({}).send(new GetParameterCommand({ Name: parameter, WithDecryption: true }));
+    if (!result.Parameter?.Value) throw new Error(`SSM parameter ${parameter} is empty`);
+    return result.Parameter.Value;
+  })().catch((error) => {
+    keyPromise = null;
+    throw error;
+  });
+  return keyPromise;
+}
 
 export interface AgentStep {
   tool: string;
@@ -68,6 +93,7 @@ async function askWith(model: string, question: string): Promise<{ answer: strin
       }),
     ]),
   );
+  const google = createGoogleGenerativeAI({ apiKey: await modelKey() });
   const result = await generateText({
     model: google(model),
     system: SYSTEM,

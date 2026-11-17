@@ -169,3 +169,25 @@ produces a new snapshot. The page shows both: publications and no-change checks.
 The one exception so far is the third snapshot. It carries no source change; it was
 published because the pipeline's own state format changed (decision 16 added a capture time
 to the key state), and scheduled runs need to restore from a snapshot that has it.
+
+## 22. The runtime is one Lambda function, defined in CDK
+
+`infra/` holds a single CDK stack: a Lambda function built from `web/Dockerfile` (2 GB,
+x86_64, 120-second timeout, 1 GB of scratch space), a public function URL, a log group kept
+for one week, and an IAM policy with one statement, `ssm:GetParameter` on one parameter.
+There is no API Gateway, VPC, database or queue, so nothing runs or bills while idle.
+
+- **Container image with the Lambda Web Adapter.** The Next.js server runs unchanged; the
+  adapter translates Lambda invocations to HTTP. The image is built on Linux, so DuckDB's
+  Linux binary and shared library are the ones packaged.
+- **Standard Lambda, not Lambda Web Functions.** The newer service is arm64-only and allows
+  10 seconds to start; a cold start here downloads about 110 MB of tables from IPFS.
+- **The model key is an encrypted SSM parameter**, read once per warm instance. It is not in
+  the function's environment, the template or the repository.
+- **The framework's disk cache is replaced by a five-minute in-memory cache**, because
+  Lambda's filesystem is read-only outside `/tmp`.
+- **Public by design.** The assignment needs a runtime anyone can open. The data is public
+  record, inputs are validated, and outside SQL is limited as in decision 18.
+
+Tested before deploying by running the image locally with a read-only filesystem and a
+non-root user, then on the deployed function: page, API, MCP, live verification and agent.
