@@ -44,6 +44,14 @@ beforeAll(async () => {
     ALTER TABLE src_state_licences ADD COLUMN _source_url VARCHAR DEFAULT 'https://example.test/dbpr.csv';
     ALTER TABLE src_state_licences ADD COLUMN _fetched_at TIMESTAMP DEFAULT TIMESTAMP '2026-11-17 00:00:00';
   `);
+  await con.run(`
+    CREATE TABLE src_bbb_profiles AS SELECT * FROM (VALUES
+      ('0633-1', 'fl', 'miami', 'roofing-contractors', 'acme-roofing-inc', 'https://www.bbb.org/us/fl/miami/profile/roofing-contractors/acme-roofing-inc-0633-1'),
+      ('0633-2', 'fl', 'doral', 'roofing-contractors', 'best-roofs', 'https://www.bbb.org/us/fl/doral/profile/roofing-contractors/best-roofs-0633-2'),
+      ('0633-3', 'fl', 'miami', 'general-contractor', 'best-roofs-llc', 'https://www.bbb.org/us/fl/miami/profile/general-contractor/best-roofs-llc-0633-3')
+    ) t(bbb_id, state, city, category, name_slug, profile_url);
+    ALTER TABLE src_bbb_profiles ADD COLUMN _source_url VARCHAR DEFAULT 'https://example.test/sitemap-1.xml';
+  `);
   await buildModel(con);
 });
 
@@ -127,5 +135,16 @@ describe("contractor", () => {
       name_variants: "2", permits: "2", roofing_permits: "2", open_roofing_permits: "1",
       state_licence_class: "CCC", county_status: "A",
     });
+  });
+});
+
+describe("BBB profile link", () => {
+  const bbb = async (n: string) => one(`SELECT bbb_profiles_with_name, bbb_profile_url, bbb_profile_category FROM contractor WHERE contractor_number = '${n}'`);
+
+  it("links a contractor to the single profile with its name, ignoring Inc and LLC", async () => {
+    expect(await bbb("CCC111")).toMatchObject({ bbb_profiles_with_name: 1, bbb_profile_category: "roofing-contractors" });
+  });
+  it("links nothing when two profiles share the name", async () => {
+    expect(await bbb("CCC222")).toMatchObject({ bbb_profiles_with_name: 2, bbb_profile_url: null });
   });
 });

@@ -51,6 +51,7 @@ const FACT_LABELS: Record<string, string> = {
   roofing_permits: "Roofing permits",
   open_roofing_permits: "Open roofing permits",
   contractors_with_state_licence: "Permit contractors matched to a state licence",
+  contractors_linked_to_bbb_profile: "Permit contractors linked to a BBB profile by name",
   qualified_businesses_in_miami_dade: "Qualified businesses registered in Miami-Dade",
 };
 

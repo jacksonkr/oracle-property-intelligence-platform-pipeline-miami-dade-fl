@@ -6,6 +6,7 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  *   property    one row per folio, with the roof-age basis and owner location
  *   permit      one row per permit, with a derived status and a roofing flag
  *   contractor  one row per contractor number seen on permits, with its state licence
+ *               and a link to a BBB profile of the same name where exactly one exists
  *   business    one row per Florida qualified-business registration
  *   owner       one row per distinct owner name + mailing address
  *   place       one row per site city, with the centre of its properties
@@ -22,6 +23,12 @@ import type { DuckDBConnection } from "@duckdb/node-api";
 const ms = (column: string) => `make_timestamp(${column} * 1000)::DATE`;
 const text = (column: string) => `nullif(trim(${column}), '')`;
 const zip5 = (column: string) => `nullif(regexp_extract(${column}, '^[0-9]{5}'), '')`;
+
+/** Trailing company-form words, ignored when comparing a contractor name with a BBB profile name. */
+const COMPANY_FORM = `'(-(inc|llc|corp|co|incorporated|corporation|company|ltd|lc|pa))+$'`;
+/** A name spelled the way BBB spells it in a profile URL: lower case, punctuation dropped, words joined by hyphens. */
+const nameKey = (column: string) =>
+  `regexp_replace(regexp_replace(trim(regexp_replace(replace(lower(${column}), '&', ' '), '[^a-z0-9 ]', '', 'g')), ' +', '-', 'g'), ${COMPANY_FORM}, '')`;
 
 /** A roof covering category, excluding equipment mounted on a roof. */
 const ROOF_CATEGORY = `(CategoryDescription1 ILIKE '%ROOF%' AND CategoryDescription1 NOT ILIKE '%ROOF MOUNTED%')`;
@@ -181,6 +188,14 @@ county AS (
          min(_source_url) AS county_source_url
   FROM src_contractors GROUP BY 1
 ),
+bbb AS (
+  -- BBB profiles grouped by name. Only a name held by exactly one profile is linked.
+  SELECT name_key, count(*) AS profiles, min(profile_url) AS profile_url,
+         min(category) AS category, min(city) AS city, min(_source_url) AS bbb_source_url
+  FROM (SELECT *, regexp_replace(name_slug, ${COMPANY_FORM}, '') AS name_key FROM src_bbb_profiles)
+  WHERE length(name_key) >= 6
+  GROUP BY name_key
+),
 base AS (
 SELECT
   p.contractor_number,
@@ -212,10 +227,21 @@ SELECT
   s.expires                                AS state_licence_expires,
   s.state_source_url,
   -- A name match only: a qualified business with exactly this name exists. Not proof it is the same firm.
-  q.name IS NOT NULL                       AS qualified_business_name_match
+  q.name IS NOT NULL                       AS qualified_business_name_match,
+  -- BBB: profiles whose name equals the permit name or the state business name. A name match only.
+  coalesce(b1.profiles, b2.profiles, 0)::INTEGER AS bbb_profiles_with_name,
+  CASE WHEN coalesce(b1.profiles, b2.profiles) = 1 THEN coalesce(b1.profile_url, b2.profile_url) END AS bbb_profile_url,
+  -- Which of the contractor's names the profile name equals.
+  CASE WHEN coalesce(b1.profiles, b2.profiles) = 1
+       THEN CASE WHEN b1.profiles IS NOT NULL THEN 'permit_name' ELSE 'state_business_name' END END AS bbb_profile_matched_on,
+  CASE WHEN coalesce(b1.profiles, b2.profiles) = 1 THEN coalesce(b1.category, b2.category) END AS bbb_profile_category,
+  CASE WHEN coalesce(b1.profiles, b2.profiles) = 1 THEN coalesce(b1.city, b2.city) END AS bbb_profile_city,
+  CASE WHEN coalesce(b1.profiles, b2.profiles) = 1 THEN coalesce(b1.bbb_source_url, b2.bbb_source_url) END AS bbb_source_url
 FROM base b
 LEFT JOIN state s USING (contractor_number)
-LEFT JOIN qualified q ON q.name = upper(trim(b.name));
+LEFT JOIN qualified q ON q.name = upper(trim(b.name))
+LEFT JOIN bbb b1 ON b1.name_key = ${nameKey("b.name")}
+LEFT JOIN bbb b2 ON b2.name_key = ${nameKey("s.dba_name")};
 
 -- Business records: Florida qualified-business registrations (name and address, no licence number).
 CREATE OR REPLACE TABLE business AS

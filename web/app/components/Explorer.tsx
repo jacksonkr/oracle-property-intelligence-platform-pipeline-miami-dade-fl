@@ -314,7 +314,16 @@ export function Explorer() {
                     )}
                     {row.state_licence_found === false && row.contractor_number && <div className="muted">not in the state licence file</div>}
                   </td>
-                  <td className="muted">not loaded</td>
+                  <td>
+                    {row.bbb_profile_url ? (
+                      <a href={String(row.bbb_profile_url)} target="_blank" rel="noreferrer" title="The one BBB profile whose name equals this contractor's. A name match, not a confirmed identity.">
+                        profile
+                      </a>
+                    ) : (
+                      <span className="muted">no profile matched</span>
+                    )}
+                    <div className="muted">rating not loaded</div>
+                  </td>
                   <td className="num">{row.miles}</td>
                   <td>
                     <a href={String(row.source_url)} target="_blank" rel="noreferrer">

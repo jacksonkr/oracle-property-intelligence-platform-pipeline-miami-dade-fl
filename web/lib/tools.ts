@@ -78,7 +78,8 @@ export const TOOLS = [
       "By default only open roofing permits. The county publishes no status: a permit is 'open' when it has no certificate and its last " +
       "inspection was not approved or it was never inspected. County permits start in 2020. Where the licence number printed on " +
       "the permit is in Florida's DBPR licence file, the licensee, business name, standing (Current, Probation, Suspended), " +
-      "activity and expiry are returned. BBB ratings are not loaded.",
+      "activity and expiry are returned. bbb_profile_url links to the one BBB profile whose name equals the contractor's " +
+      "(a name match, not a confirmed identity). BBB ratings themselves are not loaded.",
     inputSchema: permitSearchInput.extend({ limit: agentLimit }),
     run: async (input) => {
       const result = await searchPermits(input);
@@ -90,11 +91,11 @@ export const TOOLS = [
             "permit_number", "folio", "address", "roofing_kind", "application_type", "issued_date", "days_since_issued", "status",
             "contractor_name", "contractor_number", "state_licence_class", "contractor_county_status",
             "state_licence_found", "state_licensee_name", "state_business_name", "state_licence_standing",
-            "state_licence_activity", "state_licence_expires",
+            "state_licence_activity", "state_licence_expires", "bbb_profile_url", "bbb_profile_matched_on",
             "contractor_roofing_permits", "contractor_open_roofing_permits", "lat", "lon", "miles", "source_url",
           ]),
         ),
-        bbb_rating: "not loaded for any contractor",
+        bbb_rating: "not loaded for any contractor: BBB profile pages refuse automated requests. bbb_profile_url is where a person can read it.",
         evidence: { sql: result.sql, snapshot: result.snapshot },
       };
     },

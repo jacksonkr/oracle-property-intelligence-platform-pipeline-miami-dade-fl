@@ -101,6 +101,7 @@ const [facts] = await rows(
      (SELECT count(*) FROM contractor WHERE state_licence_found) AS contractors_with_state_licence,
      (SELECT count(*) FROM contractor WHERE state_licence_class IS NOT NULL AND NOT state_licence_found) AS state_format_numbers_not_in_licence_file,
      (SELECT count(*) FROM business WHERE in_miami_dade) AS qualified_businesses_in_miami_dade,
+     (SELECT count(*) FROM contractor WHERE bbb_profile_url IS NOT NULL) AS contractors_linked_to_bbb_profile,
      (SELECT min(issued_date) FROM permit) AS permits_from,
      (SELECT max(issued_date) FROM permit) AS permits_to`,
 );
@@ -120,7 +121,7 @@ const coverage = {
     last_full_run: latestBySource.get(s.key) ?? null,
   })),
   not_loaded: [
-    { what: "BBB ratings", why: "Not yet ingested." },
+    { what: "BBB ratings", why: "BBB's profile pages refuse automated requests (HTTP 403 challenge), so ratings are not read. Contractors are linked to their BBB profile page by name instead, from BBB's published sitemaps." },
     { what: "Municipal building permits", why: "Each municipality keeps its own permit system; only the county building department is loaded." },
     { what: "Sunbiz corporate registry", why: "Not yet ingested. Business records come from DBPR qualified-business registrations instead." },
   ],

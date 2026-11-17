@@ -161,7 +161,9 @@ export async function getProperty(raw: z.input<typeof propertyDetailInput>) {
   const property = await query(`SELECT *, year(current_date) - roof_year AS roof_age_years FROM property WHERE folio = $folio`, { folio });
   const permits = await query(
     `SELECT m.*, date_diff('day', m.issued_date, current_date) AS days_since_issued,
-            c.state_licence_class, c.county_status AS contractor_county_status
+            c.state_licence_class, c.county_status AS contractor_county_status,
+            c.state_licence_found, c.state_licence_standing, c.state_licence_activity,
+            c.bbb_profile_url, c.bbb_profile_matched_on
      FROM permit m LEFT JOIN contractor c ON c.contractor_number = m.contractor_number
      WHERE m.folio = $folio ORDER BY m.issued_date DESC`,
     { folio },

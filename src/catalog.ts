@@ -39,10 +39,22 @@ const csvSource = z.object({
   encoding: z.enum(["latin1", "utf8"]),
 });
 
-export const sourceSchema = z.discriminatedUnion("kind", [arcgisSource, csvSource]);
+/** BBB's business-profile sitemaps for one BBB chapter and state: which profiles exist, not their ratings. */
+const bbbSitemapSource = z.object({
+  ...common,
+  kind: z.literal("bbb_sitemap"),
+  /** The sitemap index named in BBB's robots.txt. */
+  url: z.string().url(),
+  /** BBB chapter number, the four digits before the business number in a profile URL. */
+  chapter: z.string().regex(/^\d{4}$/),
+  state: z.string().regex(/^[a-z]{2}$/),
+});
+
+export const sourceSchema = z.discriminatedUnion("kind", [arcgisSource, csvSource, bbbSitemapSource]);
 export type Source = z.infer<typeof sourceSchema>;
 export type ArcgisSource = z.infer<typeof arcgisSource>;
 export type CsvSource = z.infer<typeof csvSource>;
+export type BbbSitemapSource = z.infer<typeof bbbSitemapSource>;
 
 const MDC = "https://services.arcgis.com/8Pc9XBTAsYuxx9Ny/arcgis/rest/services";
 
@@ -116,6 +128,21 @@ export const SOURCES: Source[] = z.array(sourceSchema).parse([
       "Statewide file. It lists active, inactive and voluntarily inactive licensees only: null and void, delinquent and involuntarily inactive records are left out, so a contractor missing from it is not thereby unlicensed.",
       "Matched to permits by the licence number printed on the permit; a permit with no state-format number cannot be matched.",
       "About half the rows are qualified-business records, which carry a name and address but no licence number.",
+    ],
+  },
+  {
+    key: "bbb_profiles",
+    entity: "BBB business profile listing (one row per profile: name as spelled in the URL, city, category, profile address)",
+    publisher: "Better Business Bureau (business-profile sitemaps, Southeast Florida chapter 0633)",
+    kind: "bbb_sitemap",
+    url: "https://www.bbb.org/sitemap-business-profiles-index.xml",
+    chapter: "0633",
+    state: "fl",
+    keyFields: ["bbb_id"],
+    limitations: [
+      "Lists which BBB profiles exist. It carries no rating, accreditation or complaint data: BBB's profile pages refuse automated requests (HTTP 403 challenge), so they are not read.",
+      "A contractor is linked to a profile by name only, and only when exactly one profile in the chapter has that name. A link is a lead to check, not a confirmed identity.",
+      "Covers the BBB chapter serving Southeast Florida; a contractor based elsewhere will not be found.",
     ],
   },
 ]);

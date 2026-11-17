@@ -210,3 +210,28 @@ number of columns the run stops, because shifted columns would corrupt every fie
 - **Key:** licences have a number; qualified businesses do not, so name, address and original
   date are part of the key. The first attempt keyed on the number alone and collapsed 128,990
   business rows into one.
+
+## 24. BBB: profile links from the published sitemaps, no ratings
+
+BBB's robots.txt permits profile pages and lists sitemaps of them. A test request for one
+profile page came back HTTP 403 with a Cloudflare challenge. The rule for this pipeline is
+to stop on a refusal and not work around it, so profile pages are not read and **no rating,
+accreditation or complaint data is loaded**. Archived copies were not used either.
+
+What the sitemaps do give, with no refusal, is the list of profiles that exist: name (as
+spelled in the address), city, category and the profile address. That is a third kind of
+source (`kind: "bbb_sitemap"`).
+
+- **Reading:** the index lists about 580 files ordered by BBB chapter number. A binary search
+  finds the files holding the Southeast Florida chapter (0633), so a run makes about 22
+  requests, one second apart. If a file is out of order the run stops.
+- **Link:** a contractor is linked to a profile when exactly one profile's name equals the
+  name on its permits or its state business name, ignoring punctuation and a trailing Inc,
+  LLC or Corp. Two or more profiles with the name link nothing. `bbb_profile_matched_on`
+  says which name matched.
+- **Result:** 6,575 of 17,166 contractors linked; 914 of 2,237 roofing contractors, covering
+  36,484 of 85,385 roofing permits. 74 contractors have an ambiguous name and are left unlinked.
+- **What it is called:** "BBB profile (name match)", never a rating. A user opens the link
+  to read the rating on BBB's own page.
+- **Trade-off:** a name match can be wrong (two firms with one name, one of them without a
+  profile). The state licence join, by exact number, stays the contractor-quality signal.

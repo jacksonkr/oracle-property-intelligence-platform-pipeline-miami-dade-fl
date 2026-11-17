@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { captureArcgis } from "./arcgis.js";
 import { COUNTY, getSource } from "./catalog.js";
 import { captureCsv } from "./csv.js";
+import { captureBbbSitemap } from "./sitemap.js";
 import { lit, loadSource, openStore } from "./store.js";
 
 /**
@@ -42,7 +43,9 @@ try {
   const capture =
     source.kind === "arcgis"
       ? await captureArcgis(source, rawDir, { concurrency, maxPages })
-      : await captureCsv(source, rawDir, maxPages);
+      : source.kind === "csv"
+        ? await captureCsv(source, rawDir, maxPages)
+        : await captureBbbSitemap(source, rawDir, maxPages);
   const partial = capture.partial;
   console.log(`[${runId}] ${source.key}: ${capture.sourceCount} rows reported, ${capture.pages} pages` + (partial ? " (partial run)" : ""));
 

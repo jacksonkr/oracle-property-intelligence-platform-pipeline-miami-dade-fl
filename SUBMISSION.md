@@ -37,7 +37,7 @@ County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──�
 |---|---|---|
 | property | 938,567 | Property Appraiser roll: site address, owner, mailing address, year built, last sale, coordinates |
 | permit | 489,896 | County building permits, 2020-01-01 onward: type, dates, folio, contractor, inspections |
-| contractor | 17,166 | One per licence number printed on permits, joined to the county contractor table and to Florida DBPR state licences (11,304 matched by exact number) |
+| contractor | 17,166 | One per licence number printed on permits, joined to the county contractor table and to Florida DBPR state licences (11,304 matched by exact number), with a link to the one BBB profile of the same name where there is exactly one (6,575) |
 | business | 128,906 | Florida DBPR qualified-business registrations (12,885 in Miami-Dade): name, address, standing |
 | owner | 797,385 | Distinct owner name and mailing address |
 | place | 34 | City centres derived from the roll, for "near a city" questions |
@@ -54,7 +54,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Permit status, dates, open duration | Met, with a caveat: the county publishes no status, so it is derived from inspection and certificate dates and labelled as derived | Explorer, decision 7 |
 | Ownership records | Met: owner and mailing address on every property; 797,385 distinct owners | Explorer |
 | Contractor records | Met for contractors named on permits. State licence standing, activity and expiry are joined by exact licence number: 1,917 of 2,237 roofing contractors, covering 74,124 of 85,385 roofing permits | Explorer, permits tab; decision 23 |
-| BBB ratings | **Not loaded** | Listed under documented limits |
+| BBB ratings | **Ratings not loaded; profile links only.** BBB's profile pages answer automated requests with a 403 challenge, so they are not read. From BBB's published sitemaps, 914 of 2,237 roofing contractors (36,484 of 85,385 roofing permits) are linked by name to their BBB profile page, where a person can read the rating | Explorer, permits tab, BBB column; decision 24 |
 | Business records | Met in part: 128,906 DBPR qualified-business registrations. The Sunbiz corporate registry is not loaded | `business` table through MCP `query_sql` |
 | Coordinates | Met: 100% of properties | Run summary |
 | Roof age or proxy, configurable threshold | Met: completed roof permit, else year built, else unknown; basis shown on every row | Explorer, decision 8 |
@@ -130,8 +130,8 @@ Requires Node 22.18 or later. No account is needed to ingest or build a snapshot
 
 ```bash
 npm ci
-npm test                     # 25 tests
-npm run ingest:all           # read all four sources (about 2 minutes, 987 requests)
+npm test                     # 31 tests
+npm run ingest:all           # read all five sources (about 3 minutes, about 1,010 requests)
 npm run runs                 # run history with added / changed / removed per source
 npm run snapshot             # Parquet tables, state, manifest and CAR under data/publish/<id>/
 ```
@@ -188,7 +188,7 @@ change publishes nothing, so only real changes consume it.
 | County building permits (ArcGIS) | 489,896 rows in about 35 s over 490 requests | Starts 2020-01-01. County building department only: municipalities such as Miami and Hialeah keep their own systems. No status column. |
 | County contractor table (ArcGIS) | 22,281 rows in about 4 s | One row per contractor, tradesman and trade class. County-held licences only. |
 | Florida DBPR licensee file (CSV) | 263,664 rows in about 6 s, one request | Statewide. Omits null and void, delinquent and involuntarily inactive licences, so a miss is not proof of no licence. About half the rows are qualified businesses with no licence number. |
-| BBB | Not ingested | Profile pages are permitted by robots.txt; search and category pages are not. |
+| BBB business-profile sitemaps | 127,172 Florida profile listings in about 33 s, 22 requests | Says a profile exists, with its name, city and category. No rating. Profile pages are permitted by robots.txt but return HTTP 403 to automated requests, so the pipeline stops there. |
 | Sunbiz | Not ingested | Bulk files are offered over SFTP; not yet loaded. |
 
 Year built is missing for 69,096 properties and is a proxy for roof age wherever no completed
