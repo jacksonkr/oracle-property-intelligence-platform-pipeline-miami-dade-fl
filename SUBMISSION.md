@@ -205,6 +205,9 @@ departures from the team kit:
 - **Publication follows this repository's README** (a manifest of query tables retrievable by
   CID), not the kit's Atlas registry, which needs a maintainer merge. See decision 5.
 
+Every kit rule followed and every departure, with reasons, is in
+[`docs/kit-usage.md`](./docs/kit-usage.md).
+
 ## Repository layout
 
 ```

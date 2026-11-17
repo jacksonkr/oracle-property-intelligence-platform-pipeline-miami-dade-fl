@@ -18,6 +18,10 @@ import { TOOLS } from "./tools";
 // "high demand", so the default is the one that answers a tool call in about a second.
 const MODELS = (process.env.AGENT_MODELS ?? "gemini-3.5-flash-lite,gemini-3.5-flash").split(",").map((m) => m.trim());
 const ATTEMPT_TIMEOUT_MS = 50_000;
+/** The whole question must finish inside the function's 120 s limit. */
+const BUDGET_MS = 100_000;
+/** The free model tier often answers "high demand" for a few seconds, so the list of models is tried twice. */
+const ATTEMPTS = [...MODELS, ...MODELS];
 
 const SYSTEM = `You help a roofing company find leads in Miami-Dade County, Florida, using a published dataset of county property, permit and contractor records.
 
@@ -66,9 +70,13 @@ export interface AgentStep {
 
 export async function askAgent(question: string): Promise<{ answer: string; steps: AgentStep[]; model: string }> {
   let lastError: unknown;
-  for (const model of MODELS) {
+  const started = Date.now();
+  for (const [attempt, model] of ATTEMPTS.entries()) {
+    const left = BUDGET_MS - (Date.now() - started);
+    if (left < 5_000) break;
+    if (attempt === MODELS.length) await new Promise((resolve) => setTimeout(resolve, 2_500));
     try {
-      return await askWith(model, question);
+      return await askWith(model, question, Math.min(ATTEMPT_TIMEOUT_MS, left));
     } catch (error) {
       lastError = error;
       console.error(`Agent model ${model} failed:`, error instanceof Error ? error.message : error);
@@ -77,7 +85,7 @@ export async function askAgent(question: string): Promise<{ answer: string; step
   throw new Error(`The language model is unavailable right now (${lastError instanceof Error ? lastError.message : "unknown error"}). The data tools on this page still work.`);
 }
 
-async function askWith(model: string, question: string): Promise<{ answer: string; steps: AgentStep[]; model: string }> {
+async function askWith(model: string, question: string, timeoutMs: number): Promise<{ answer: string; steps: AgentStep[]; model: string }> {
   const steps: AgentStep[] = [];
   const tools = Object.fromEntries(
     TOOLS.map((spec) => [
@@ -102,7 +110,7 @@ async function askWith(model: string, question: string): Promise<{ answer: strin
     stopWhen: isStepCount(8),
     temperature: 0,
     maxRetries: 0,
-    abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+    abortSignal: AbortSignal.timeout(timeoutMs),
   });
   // If the model used every step on tool calls it leaves no text; say so instead of returning nothing.
   const answer = result.text.trim() || "I ran several searches but did not reach a written answer. The records I retrieved are listed below.";
