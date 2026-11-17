@@ -35,6 +35,10 @@ County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──�
 
 ## What is loaded
 
+Counts in this file are from snapshot `20261117T151031Z`. The live page shows the current
+snapshot's counts, which move by a small amount with each run (for example 491,387 permits in
+snapshot `20261117T152027Z`).
+
 | Table | Rows | Source |
 |---|---|---|
 | property | 938,567 | Property Appraiser roll: site address, owner, mailing address, year built, last sale, coordinates |
@@ -188,7 +192,7 @@ change publishes nothing, so only real changes consume it.
 |---|---|---|
 | Property Appraiser roll (ArcGIS) | 944,398 rows in 25 to 65 s over 473 requests | Only the most recent sale. No per-row change time, so changes are found by content hash. 5,830 rows have no folio and are excluded. |
 | County building permits (ArcGIS) | 489,896 rows in about 35 s over 490 requests | Starts 2020-01-01. County building department only: municipalities such as Miami and Hialeah keep their own systems. No status column. |
-| County contractor table (ArcGIS) | 22,281 rows in about 4 s | One row per contractor, tradesman and trade class. County-held licences only. |
+| County contractor table (ArcGIS) | 22,281 rows in about 4 s | One row per contractor, tradesman and trade class. County-held licences only. **The county emptied this layer during a reload on 2026-11-17**; snapshot `20261117T152027Z` was published while it was empty and so carries no county licence status. The pipeline now refuses an empty or half-size read (decision 25), so the daily run stops until the county refills the layer. State licence standing from DBPR is unaffected. |
 | Florida DBPR licensee file (CSV) | 263,664 rows in about 6 s, one request | Statewide. Omits null and void, delinquent and involuntarily inactive licences, so a miss is not proof of no licence. About half the rows are qualified businesses with no licence number. |
 | BBB business-profile sitemaps | 127,172 Florida profile listings in about 33 s, 22 requests | Says a profile exists, with its name, city and category. No rating. Profile pages are permitted by robots.txt but return HTTP 403 to automated requests, so the pipeline stops there. |
 | Sunbiz | Not ingested | Bulk files are offered over SFTP; not yet loaded. |
