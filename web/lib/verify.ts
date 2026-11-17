@@ -8,10 +8,13 @@ import { createHash } from "node:crypto";
  * holds right now.
  */
 export const VERIFY_GATEWAYS = [
+  // Chosen by measurement from this host's network: these answer server-side requests.
   { name: "gateway.pinata.cloud", independent: true, base: "https://gateway.pinata.cloud/ipfs" },
-  { name: "dget.top", independent: true, base: "https://dget.top/ipfs" },
-  { name: "w3s.link", independent: true, base: "https://w3s.link/ipfs" },
+  { name: "eu.orbitor.dev", independent: true, base: "https://eu.orbitor.dev/ipfs" },
+  // These often refuse or rate-limit data-centre traffic; kept so the record shows it.
   { name: "4everland.io", independent: true, base: "https://4everland.io/ipfs" },
+  { name: "w3s.link", independent: true, base: "https://w3s.link/ipfs" },
+  { name: "dget.top", independent: true, base: "https://dget.top/ipfs" },
   { name: "ipfs.filebase.io", independent: false, base: "https://ipfs.filebase.io/ipfs" },
 ];
 
@@ -37,7 +40,7 @@ export async function verifyLive(cidAndPath: string, want: { size: number; sha25
       const started = Date.now();
       const base = { gateway: gateway.name, independent: gateway.independent, url };
       try {
-        const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(45_000) });
+        const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
         if (!response.ok || !response.body) {
           return { ...base, ok: false, status: response.status, size: null, sha256: null, ms: Date.now() - started, error: `HTTP ${response.status}` };
         }

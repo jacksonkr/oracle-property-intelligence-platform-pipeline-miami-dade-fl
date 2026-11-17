@@ -59,7 +59,7 @@ export async function searchProperties(raw: PropertySearchInput) {
     params.roofBasis = input.roofBasis;
   }
   if (input.minYearsSinceSale !== undefined) {
-    where.push(`last_sale_date IS NOT NULL AND date_diff('year', last_sale_date, current_date) >= $minYearsSinceSale`);
+    where.push(`last_sale_date IS NOT NULL AND date_sub('year', last_sale_date, current_date) >= $minYearsSinceSale`);
     params.minYearsSinceSale = input.minYearsSinceSale;
   }
   if (input.ownerLocation?.length) {
@@ -81,7 +81,7 @@ export async function searchProperties(raw: PropertySearchInput) {
             owner_1, owner_location, mailing_city, mailing_state,
             year_built, roof_year, roof_basis, roof_permit_number, roof_permit_date,
             year(current_date) - roof_year AS roof_age_years,
-            last_sale_date, date_diff('year', last_sale_date, current_date) AS years_since_sale,
+            last_sale_date, date_sub('year', last_sale_date, current_date) AS years_since_sale,
             lat, lon, round(${DISTANCE}, 2) AS miles, source_url, fetched_at
      FROM property WHERE ${filter}
      ORDER BY roof_age_years DESC NULLS LAST, miles, folio

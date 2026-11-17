@@ -16,6 +16,7 @@ export interface Gateway {
 export const GATEWAYS: Gateway[] = [
   { name: "gateway.pinata.cloud", independent: true, url: (p) => `https://gateway.pinata.cloud/ipfs/${p}` },
   { name: "dget.top", independent: true, url: (p) => `https://dget.top/ipfs/${p}` },
+  { name: "eu.orbitor.dev", independent: true, url: (p) => `https://eu.orbitor.dev/ipfs/${p}` },
   { name: "w3s.link", independent: true, url: (p) => `https://w3s.link/ipfs/${p}` },
   { name: "4everland.io", independent: true, url: (p) => `https://4everland.io/ipfs/${p}` },
   { name: "ipfs.filebase.io", independent: false, url: (p) => `https://ipfs.filebase.io/ipfs/${p}` },
