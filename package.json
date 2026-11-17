@@ -1,0 +1,26 @@
+{
+  "name": "oracle-pipeline-miami-dade-fl",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Incremental Oracle ingestion pipeline for Miami-Dade County, FL: public sources -> DuckDB -> content-addressed IPFS snapshots.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "ingest": "tsx src/run.ts",
+    "runs": "tsx src/runs.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^2.0.0-r.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
