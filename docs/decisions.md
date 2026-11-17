@@ -157,3 +157,15 @@ list is an environment variable (`AGENT_MODELS`).
 A condo building is one roof. Listing each unit put 88 rows for one address at the top of an
 "oldest roofs" search. Results now return one row per address with the number of matching
 units; the total still counts properties.
+
+## 21. A run that finds no change publishes nothing
+
+Identical data must not get a new CID, and each published snapshot costs about 320 MB of a
+5 GB free quota. After the sources are re-read, `npm run record-check` sums the added,
+changed and removed records since the latest published snapshot. If the sum is zero, the
+check is appended to `publications/checks.json` and no snapshot is built. Only a real change
+produces a new snapshot. The page shows both: publications and no-change checks.
+
+The one exception so far is the third snapshot. It carries no source change; it was
+published because the pipeline's own state format changed (decision 16 added a capture time
+to the key state), and scheduled runs need to restore from a snapshot that has it.
