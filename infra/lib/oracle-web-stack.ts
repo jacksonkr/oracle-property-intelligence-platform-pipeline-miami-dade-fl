@@ -1,4 +1,6 @@
 import { CfnOutput, Duration, RemovalPolicy, Size, Stack, type StackProps, Tags } from "aws-cdk-lib";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -8,6 +10,8 @@ import { join } from "node:path";
 export interface OracleWebStackProps extends StackProps {
   /** Name of the SSM SecureString parameter holding the Gemini API key. Created outside this stack. */
   geminiKeyParameter: string;
+  /** How many function instances a five-minute schedule keeps ready. 0 turns the schedule off. */
+  keepWarmInstances: number;
 }
 
 /**
@@ -42,6 +46,8 @@ export class OracleWebStack extends Stack {
       logGroup,
       environment: {
         GEMINI_KEY_PARAMETER: props.geminiKeyParameter,
+        // Lambda Web Adapter sends events that are not HTTP requests (the keep-warm schedule) here.
+        AWS_LWA_PASS_THROUGH_PATH: "/api/warm",
       },
     });
 
@@ -52,6 +58,21 @@ export class OracleWebStack extends Stack {
         resources: [this.formatArn({ service: "ssm", resource: "parameter", resourceName: props.geminiKeyParameter.replace(/^\//, "") })],
       }),
     );
+
+    // Keep-warm: a schedule calls the function every five minutes so a reviewer never waits
+    // for a cold start. Each target is one simultaneous call, so that many instances stay
+    // ready. This is the only thing that runs while idle; set keepWarmInstances to 0 to remove
+    // it. At 2 GB and about half a second per call it uses under 5% of Lambda's monthly free tier.
+    if (props.keepWarmInstances > 0) {
+      new events.Rule(this, "KeepWarm", {
+        description: "Calls the web function so visitors do not meet a cold start",
+        schedule: events.Schedule.rate(Duration.minutes(5)),
+        targets: Array.from(
+          { length: props.keepWarmInstances },
+          (_, i) => new targets.LambdaFunction(web, { event: events.RuleTargetInput.fromObject({ warm: i }), retryAttempts: 0 }),
+        ),
+      });
+    }
 
     // Public by design: the assignment requires a runtime anyone can open without credentials.
     // The data is public record and the engine is read-only (see docs/decisions.md, decision 18).

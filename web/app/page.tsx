@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { Agent } from "./components/Agent";
+import { Entities } from "./components/Entities";
 import { Explorer } from "./components/Explorer";
 import { VerifyButton } from "./components/VerifyButton";
 import { getChecks, getLatest, getPublications, getSnapshotJson, READ_GATEWAYS } from "@/lib/snapshot";
@@ -386,6 +387,15 @@ export default async function Page() {
           or it was never inspected. County permits are available from 2020 onward.
         </div>
         <Explorer />
+      </section>
+
+      <section className="panel" id="entities">
+        <h2>Browse entities and relationships</h2>
+        <p className="lead">
+          The reconciled contractors, owners and businesses. Open a contractor to see every permit filed under its licence number, or an
+          owner to see every property held under that name and mailing address.
+        </p>
+        <Entities />
       </section>
 
       <section className="panel" id="agent">

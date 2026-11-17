@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { query, queryReadOnly } from "./engine";
+import { getEntity, searchEntities } from "./entities";
 import { findPlace, getProperty, permitSearchInput, placeInput, propertyDetailInput, propertySearchInput, searchPermits, searchProperties } from "./queries";
 import { getLatest, getSnapshotJson } from "./snapshot";
 
@@ -108,6 +109,44 @@ export const TOOLS = [
     run: async (input) => {
       const result = await getProperty(input);
       return { property: result.property, permits: result.permits, evidence: { sql: result.sql, snapshot: result.snapshot } };
+    },
+  }),
+  define({
+    name: "search_contractors",
+    title: "Search contractors",
+    description:
+      "Find contractors named on county permits by part of their name or licence number, most roofing permits first. Returns permit counts, " +
+      "open roofing permits, Florida state licence standing where the licence number matched, and a BBB profile link where one matched by name.",
+    inputSchema: z.object({
+      q: z.string().max(80).default("").describe("Part of the contractor name or licence number; empty lists the busiest roofing contractors"),
+      limit: agentLimit,
+    }),
+    run: async (input) => {
+      const result = await searchEntities({ kind: "contractor", ...input });
+      return { total_matches: result.total, contractors: result.rows, evidence: { sql: result.sql, snapshot: result.snapshot } };
+    },
+  }),
+  define({
+    name: "get_contractor",
+    title: "Get one contractor",
+    description:
+      "Return one contractor by the licence number printed on its permits, with the spellings of its name and its permits (open roofing permits first).",
+    inputSchema: z.object({ contractorNumber: z.string().min(1).max(40) }),
+    run: async (input) => {
+      const result = await getEntity({ kind: "contractor", id: input.contractorNumber });
+      return { contractor: result.entity, name_spellings: result.names, permits: result.related.slice(0, 40), evidence: { sql: result.sql, snapshot: result.snapshot } };
+    },
+  }),
+  define({
+    name: "search_owners",
+    title: "Search owners",
+    description:
+      "Find property owners by part of their name, largest holdings first. An owner is one exact name and mailing address; different spellings stay separate. " +
+      "Returns the mailing address, whether it is in or out of the county, and how many properties are held.",
+    inputSchema: z.object({ q: z.string().max(80).default("").describe("Part of the owner name; empty lists the largest owners"), limit: agentLimit }),
+    run: async (input) => {
+      const result = await searchEntities({ kind: "owner", ...input });
+      return { total_matches: result.total, owners: result.rows, evidence: { sql: result.sql, snapshot: result.snapshot } };
     },
   }),
   define({

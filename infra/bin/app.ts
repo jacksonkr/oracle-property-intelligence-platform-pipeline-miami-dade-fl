@@ -9,5 +9,6 @@ const app = new App();
 new OracleWebStack(app, "MiamiDadeOracleWeb", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-2" },
   geminiKeyParameter: "/miami-dade-oracle/gemini-api-key",
+  keepWarmInstances: 4,
   description: "Miami-Dade Oracle pipeline: hosted runtime (one Lambda function with a public URL)",
 });

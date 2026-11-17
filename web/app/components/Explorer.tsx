@@ -34,6 +34,9 @@ export function Explorer() {
   const [miles, setMiles] = useState(1);
   const [minRoofAge, setMinRoofAge] = useState(15);
   const [minYearsOpen, setMinYearsOpen] = useState(0);
+  const [minYearsSinceSale, setMinYearsSinceSale] = useState(0);
+  const [ownerAway, setOwnerAway] = useState(false);
+  const [licence, setLicence] = useState("");
   const [tab, setTab] = useState<"roofs" | "permits">("roofs");
   const [place, setPlace] = useState("");
   const [busy, setBusy] = useState(false);
@@ -92,8 +95,14 @@ export function Explorer() {
     const base = `lat=${centre.lat}&lon=${centre.lon}&miles=${miles}`;
     try {
       const [a, b] = await Promise.all([
-        fetch(`/api/properties?${base}&minRoofAge=${minRoofAge}&limit=300`).then((r) => r.json()),
-        fetch(`/api/permits?${base}&minDaysOpen=${Math.round(minYearsOpen * 365.25)}&limit=300`).then((r) => r.json()),
+        fetch(
+          `/api/properties?${base}&minRoofAge=${minRoofAge}&limit=300` +
+            (minYearsSinceSale > 0 ? `&minYearsSinceSale=${minYearsSinceSale}` : "") +
+            (ownerAway ? `&ownerLocation=florida_outside_county,out_of_state,foreign` : ""),
+        ).then((r) => r.json()),
+        fetch(
+          `/api/permits?${base}&minDaysOpen=${Math.round(minYearsOpen * 365.25)}&limit=300` + (licence ? `&contractorLicence=${licence}` : ""),
+        ).then((r) => r.json()),
       ]);
       if (a.error || b.error) setMessage(a.error ?? b.error);
       setRoofs(a.error ? null : a);
@@ -103,7 +112,7 @@ export function Explorer() {
     } finally {
       setBusy(false);
     }
-  }, [centre, miles, minRoofAge, minYearsOpen]);
+  }, [centre, miles, minRoofAge, minYearsOpen, minYearsSinceSale, ownerAway, licence]);
 
   // Redraw markers when results or the visible tab change.
   useEffect(() => {
@@ -168,6 +177,23 @@ export function Explorer() {
         <label>
           Permit open at least (years)
           <input type="number" min={0} max={50} step={0.5} value={minYearsOpen} onChange={(e) => setMinYearsOpen(Number(e.target.value) || 0)} />
+        </label>
+        <label>
+          Not sold for at least (years)
+          <input type="number" min={0} max={100} value={minYearsSinceSale} onChange={(e) => setMinYearsSinceSale(Number(e.target.value) || 0)} />
+        </label>
+        <label>
+          Permit contractor&apos;s state licence
+          <select value={licence} onChange={(e) => setLicence(e.target.value)}>
+            <option value="">Any</option>
+            <option value="problem">Probation, suspended or inactive</option>
+            <option value="not_in_state_file">Not in the state licence file</option>
+            <option value="current_active">Current and active</option>
+          </select>
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <input type="checkbox" checked={ownerAway} onChange={(e) => setOwnerAway(e.target.checked)} />
+          Owner&apos;s mailing address is outside the county
         </label>
         <button className="primary" onClick={search} disabled={busy}>
           {busy ? "Searching…" : "Search this area"}
