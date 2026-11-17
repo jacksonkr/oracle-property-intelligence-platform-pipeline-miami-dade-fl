@@ -10,13 +10,17 @@ export const entitySearchInput = z.object({
   kind: z.enum(["contractor", "owner", "business"]).describe("Which entity to list"),
   q: z.string().trim().max(80).default("").describe("Part of a name (or a contractor licence number). Empty lists the largest first"),
   limit: z.number().int().min(1).max(200).default(50),
+  sort: z
+    .enum(["roofing_permits", "open_roofing_permits", "permits"])
+    .default("roofing_permits")
+    .describe("Contractors only: which count to rank by, largest first"),
 });
 export type EntitySearchInput = z.input<typeof entitySearchInput>;
 
 const LIKE = `'%' || $q || '%'`;
 
 export async function searchEntities(raw: EntitySearchInput): Promise<QueryResult & { total: number }> {
-  const { kind, q, limit } = entitySearchInput.parse(raw);
+  const { kind, q, limit, sort } = entitySearchInput.parse(raw);
   const count = async (sql: string) => Number((await query<{ n: string }>(sql, { q })).rows[0]?.n ?? 0);
 
   if (kind === "contractor") {
@@ -27,7 +31,8 @@ export async function searchEntities(raw: EntitySearchInput): Promise<QueryResul
               state_licence_found, state_licensee_name, state_business_name, state_licence_standing,
               state_licence_activity, state_licence_expires, bbb_profile_url, bbb_profile_matched_on, source_url
        FROM contractor WHERE ${where}
-       ORDER BY roofing_permits DESC, permits DESC, contractor_number LIMIT ${limit}`,
+       -- sort is one of three column names checked by Zod above; safe to inline.
+       ORDER BY ${sort} DESC, roofing_permits DESC, permits DESC, contractor_number LIMIT ${limit}`,
       { q },
     );
     return { ...result, total: await count(`SELECT count(*) AS n FROM contractor WHERE ${where}`) };

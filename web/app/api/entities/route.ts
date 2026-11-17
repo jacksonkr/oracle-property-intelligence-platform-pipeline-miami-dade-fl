@@ -11,6 +11,7 @@ export async function GET(request: Request) {
       kind: params.get("kind") as "contractor" | "owner" | "business",
       q: params.get("q") ?? "",
       ...(params.get("limit") ? { limit: Number(params.get("limit")) } : {}),
+      ...(params.get("sort") ? { sort: params.get("sort") as "roofing_permits" } : {}),
     }),
   );
 }

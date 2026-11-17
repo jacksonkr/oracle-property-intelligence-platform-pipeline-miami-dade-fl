@@ -115,10 +115,12 @@ export const TOOLS = [
     name: "search_contractors",
     title: "Search contractors",
     description:
-      "Find contractors named on county permits by part of their name or licence number, most roofing permits first. Returns permit counts, " +
+      "Find contractors named on county permits by part of their name or licence number. Ranked by roofing permits unless sort says otherwise: " +
+      "use sort=open_roofing_permits for 'most open roofing permits'. Returns permit counts, " +
       "open roofing permits, Florida state licence standing where the licence number matched, and a BBB profile link where one matched by name.",
     inputSchema: z.object({
-      q: z.string().max(80).default("").describe("Part of the contractor name or licence number; empty lists the busiest roofing contractors"),
+      q: z.string().max(80).default("").describe("Part of the contractor name or licence number; empty lists all contractors in rank order"),
+      sort: z.enum(["roofing_permits", "open_roofing_permits", "permits"]).default("roofing_permits").describe("Which count to rank by, largest first"),
       limit: agentLimit,
     }),
     run: async (input) => {
