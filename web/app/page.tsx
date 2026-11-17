@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { Agent } from "./components/Agent";
 import { Explorer } from "./components/Explorer";
 import { VerifyButton } from "./components/VerifyButton";
-import { getLatest, getPublications, getSnapshotJson, READ_GATEWAYS } from "@/lib/snapshot";
+import { getChecks, getLatest, getPublications, getSnapshotJson, READ_GATEWAYS } from "@/lib/snapshot";
 import { TOOLS } from "@/lib/tools";
 
 // Always read the current publication record: a new snapshot shows up without a redeploy.
@@ -53,7 +53,7 @@ const FACT_LABELS: Record<string, string> = {
 };
 
 export default async function Page() {
-  const [publications, { publication, manifest }] = await Promise.all([getPublications(), getLatest()]);
+  const [publications, { publication, manifest }, checks] = await Promise.all([getPublications(), getLatest(), getChecks()]);
   const [coverage, runs] = await Promise.all([
     getSnapshotJson<Coverage>(manifest.root.cid, "coverage.json"),
     getSnapshotJson<SourceRun[]>(manifest.root.cid, "runs.json"),
@@ -329,6 +329,45 @@ export default async function Page() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="panel" id="checks">
+        <h2>Re-reads that found no change</h2>
+        <p className="lead">
+          The sources are re-read on a schedule. When no record was added, changed or removed, nothing is published: identical data keeps
+          its content IDs, and the check is recorded here.
+        </p>
+        {checks.length === 0 ? (
+          <p className="muted">None recorded yet.</p>
+        ) : (
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Checked</th>
+                  <th>Compared with snapshot</th>
+                  <th>Result</th>
+                  <th className="num">Records re-read and unchanged</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...checks].reverse().map((check) => {
+                  const latestBySource = new Map(check.runs.map((run) => [run.source_key, run.unchanged]));
+                  return (
+                    <tr key={check.checked_at}>
+                      <td>{when(check.checked_at)}</td>
+                      <td className="mono">{check.against_snapshot}</td>
+                      <td>
+                        <span className="tag ok">{check.result}</span>
+                      </td>
+                      <td className="num">{n([...latestBySource.values()].reduce((sum, value) => sum + value, 0))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="panel" id="explore">

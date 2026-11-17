@@ -50,6 +50,22 @@ export async function getPublications(): Promise<Publication[]> {
   return getJson<Publication[]>(`${PUBLICATIONS_URL}/index.json`);
 }
 
+export interface NoChangeCheck {
+  checked_at: string;
+  against_snapshot: string;
+  result: string;
+  runs: { run_id: string; source_key: string; unchanged: number }[];
+}
+
+/** Scheduled runs that re-read the sources and found nothing to publish. */
+export async function getChecks(): Promise<NoChangeCheck[]> {
+  try {
+    return await getJson<NoChangeCheck[]>(`${PUBLICATIONS_URL}/checks.json`);
+  } catch {
+    return [];
+  }
+}
+
 export async function getManifest(snapshotId: string): Promise<Manifest> {
   return getJson<Manifest>(`${PUBLICATIONS_URL}/${snapshotId}/manifest.json`);
 }
