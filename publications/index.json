@@ -14,5 +14,13 @@
     "root_cid": "bafybeifl7lw5zxlyom5xr6rrtuvpf4ddqzv7skni2yowfbjgc3kqeuspu4",
     "car_cid": "bafybeihz75azherh5m66dq3cmtifq362ckqs7cdsnqhp7vjcgj653bfzum",
     "previous_manifest_cid": "bafkreifbvuaqpy2ed7jf3h6o76jyrwfv4o5sryxvhwkzyi7s6lgfhyurkq"
+  },
+  {
+    "snapshot_id": "20261117T050847Z",
+    "created_at": "2026-11-17T05:08:47.110Z",
+    "manifest_cid": "bafkreid7rvjugll3nrdmgj4gs6a3wy4ko3mlbtzdbohxxl54fqmdoyeg7q",
+    "root_cid": "bafybeiaxyhj7oulrxfe4sogp3fqgex5oktarduz6hcvhh72voezo4be46e",
+    "car_cid": "bafybeiguzulitzo3veym66pyrnatamxpkutlpfgo6vuw5tl4zs4ps5mshi",
+    "previous_manifest_cid": "bafkreihwquprnniz3lhbki2wdq3iiapg2445qtzg53im5oy34umudec4vu"
   }
 ]
