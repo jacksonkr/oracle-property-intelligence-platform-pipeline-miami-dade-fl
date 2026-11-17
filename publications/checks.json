@@ -213,5 +213,56 @@
         "unchanged": 127172
       }
     ]
+  },
+  {
+    "checked_at": "2026-11-17T18:36:56.693Z",
+    "against_snapshot": "20261117T165542Z",
+    "result": "no change",
+    "runs": [
+      {
+        "run_id": "20261117T183452Z",
+        "source_key": "properties",
+        "finished_at": "2026-11-17 18:35:38.153",
+        "source_count": 944398,
+        "distinct_keys": 938567,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 938567
+      },
+      {
+        "run_id": "20261117T183538Z",
+        "source_key": "permits",
+        "finished_at": "2026-11-17 18:36:19.045",
+        "source_count": 491387,
+        "distinct_keys": 491387,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 491387
+      },
+      {
+        "run_id": "20261117T183620Z",
+        "source_key": "state_licences",
+        "finished_at": "2026-11-17 18:36:28.145",
+        "source_count": 263784,
+        "distinct_keys": 263700,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 263700
+      },
+      {
+        "run_id": "20261117T183628Z",
+        "source_key": "bbb_profiles",
+        "finished_at": "2026-11-17 18:36:56.089",
+        "source_count": 127172,
+        "distinct_keys": 127172,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 127172
+      }
+    ]
   }
 ]
