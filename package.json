@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "model": "tsx src/build-model.ts",
-    "snapshot": "tsx src/snapshot.ts"
+    "snapshot": "tsx src/snapshot.ts",
+    "restore": "tsx src/restore.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "^2.0.0-r.1",

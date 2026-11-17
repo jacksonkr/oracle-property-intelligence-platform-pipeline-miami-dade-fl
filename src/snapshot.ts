@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { COUNTY, SOURCES } from "./catalog.js";
 import { buildSnapshotCar, fileCid, sha256File } from "./ipfs.js";
 import { buildModel } from "./model.js";
-import { lit, openStore, rows } from "./store.js";
+import { ensureStateTable, lit, openStore, rows, stateTable } from "./store.js";
 
 /**
  * Build a publishable snapshot from the working store. Offline: nothing is uploaded.
@@ -15,6 +15,8 @@ import { lit, openStore, rows } from "./store.js";
  *   root/coverage.json      what was loaded, from where, and the known limits
  *   root/runs.json          run history with per-source deltas
  *   root/samples/*.json     small extracts for a quick look without DuckDB
+ *   root/state/*.parquet    key + content hash per source, change log and run history:
+ *                           what the next run needs to compute deltas on a clean machine
  *   snapshot.car            the whole root directory DAG, importable by any IPFS node
  *   manifest.json           every artifact with CID, size, codec and SHA-256
  *
@@ -31,6 +33,7 @@ const outDir = join(dataDir, "publish", snapshotId);
 const rootDir = join(outDir, "root");
 mkdirSync(join(rootDir, "tables"), { recursive: true });
 mkdirSync(join(rootDir, "samples"), { recursive: true });
+mkdirSync(join(rootDir, "state"), { recursive: true });
 const posix = (path: string) => path.replaceAll("\\", "/");
 
 // Sort orders are part of the contract: they make the files reproducible and let
@@ -47,6 +50,21 @@ for (const [table, order] of Object.entries(TABLES)) {
   await con.run(`COPY (SELECT * FROM ${table} ORDER BY ${order})
     TO ${lit(file)} (FORMAT parquet, COMPRESSION zstd, ROW_GROUP_SIZE 20000)`);
   tableCounts[table] = Number((await rows(con, `SELECT count(*) AS n FROM ${table}`))[0]?.n);
+}
+
+// Pipeline state: small, and enough to resume incremental runs anywhere.
+const STATE: Record<string, string> = {
+  pipeline_run: "SELECT * FROM pipeline_run ORDER BY run_id",
+  pipeline_run_source: "SELECT * FROM pipeline_run_source ORDER BY run_id, source_key",
+  pipeline_change: "SELECT * FROM pipeline_change ORDER BY run_id, source_key, record_key",
+};
+for (const source of SOURCES) {
+  await ensureStateTable(con, source.key);
+  STATE[`key_state_${source.key}`] = `SELECT * FROM ${stateTable(source.key)} ORDER BY _key`;
+}
+for (const [name, sql] of Object.entries(STATE)) {
+  const file = posix(join(rootDir, "state", `${name}.parquet`));
+  await con.run(`COPY (${sql}) TO ${lit(file)} (FORMAT parquet, COMPRESSION zstd)`);
 }
 
 const num = (value: unknown) => (value === null || value === undefined ? null : Number(value));
@@ -118,6 +136,7 @@ const files: Record<string, string> = {
   "runs.json": join(rootDir, "runs.json"),
   ...Object.fromEntries(Object.keys(TABLES).map((t) => [`tables/${t}.parquet`, join(rootDir, "tables", `${t}.parquet`)])),
   ...Object.fromEntries(Object.keys(SAMPLES).map((s) => [`samples/${s}`, join(rootDir, "samples", s)])),
+  ...Object.fromEntries(Object.keys(STATE).map((s) => [`state/${s}.parquet`, join(rootDir, "state", `${s}.parquet`)])),
 };
 const carPath = join(outDir, "snapshot.car");
 const { root, entries, blocks } = await buildSnapshotCar(files, carPath);

@@ -93,8 +93,20 @@ export interface LoadResult {
   unchanged: number;
 }
 
+/** Per-source record of which keys exist and what their content hash was. */
+export const stateTable = (sourceKey: string) => ident(`key_state_${sourceKey}`);
+const STATE_COLUMNS = `_key VARCHAR, _row_hash VARCHAR, _first_seen_run VARCHAR, _last_changed_run VARCHAR`;
+
+export async function ensureStateTable(con: DuckDBConnection, sourceKey: string): Promise<void> {
+  await con.run(`CREATE TABLE IF NOT EXISTS ${stateTable(sourceKey)} (${STATE_COLUMNS})`);
+}
+
 /**
  * Merge one run's captured pages into `src_<key>` and return the deltas.
+ *
+ * Deltas are computed against `key_state_<key>` (key + content hash), not the
+ * full previous rows. That small table is published with every snapshot, so a
+ * run on a clean machine restores it and reports the same deltas.
  *
  * A full run replaces the snapshot, so a key missing from the capture is a
  * removal. A partial run only upserts: it never infers removals.
@@ -109,6 +121,8 @@ export async function loadSource(
   partial: boolean,
 ): Promise<LoadResult> {
   const table = ident(`src_${source.key}`);
+  const state = stateTable(source.key);
+  await ensureStateTable(con, source.key);
   // `_key` is the record's identity: the key fields joined, NULL when the first is missing.
   const key = `"_key"`;
   const [firstKey, ...restKeys] = source.keyFields.map(ident) as [string, ...string[]];
@@ -137,7 +151,7 @@ export async function loadSource(
   const fetchedRows = await scalar(con, `SELECT count(*) FROM stage_all`);
   const distinctKeys = await scalar(con, `SELECT count(*) FROM stage`);
   const rowsWithoutKey = await scalar(con, `SELECT count(*) FROM stage_all WHERE ${key} IS NULL`);
-  const hadSnapshot = (await scalar(con, `SELECT count(*) FROM ${table}`)) > 0;
+  const hadSnapshot = (await scalar(con, `SELECT count(*) FROM ${state}`)) > 0;
 
   const run = lit(runId);
   const src = lit(source.key);
@@ -148,9 +162,9 @@ export async function loadSource(
              CASE WHEN t.${key} IS NULL THEN 'added'
                   WHEN t._row_hash <> s._row_hash THEN 'changed'
                   ELSE 'unchanged' END AS change
-      FROM stage s LEFT JOIN ${table} t ON t.${key} = s.${key}
+      FROM stage s LEFT JOIN ${state} t ON t.${key} = s.${key}
       ${partial ? "" : `UNION ALL
-      SELECT t.${key}, 'removed' FROM ${table} t ANTI JOIN stage s ON s.${key} = t.${key}`}`);
+      SELECT t.${key}, 'removed' FROM ${state} t ANTI JOIN stage s ON s.${key} = t.${key}`}`);
 
     // The first load of a source is all "added"; logging every key adds no information.
     await con.run(`INSERT INTO pipeline_change
@@ -162,11 +176,18 @@ export async function loadSource(
              coalesce(t._first_seen_run, ${run}) AS _first_seen_run,
              CASE WHEN t.${key} IS NULL OR t._row_hash <> s._row_hash THEN ${run}
                   ELSE t._last_changed_run END AS _last_changed_run
-      FROM stage s LEFT JOIN ${table} t ON t.${key} = s.${key}
+      FROM stage s LEFT JOIN ${state} t ON t.${key} = s.${key}
       ${partial ? `UNION ALL BY NAME
       SELECT t.* FROM ${table} t ANTI JOIN stage s ON s.${key} = t.${key}` : ""}`);
     await con.run(`DROP TABLE ${table}`);
     await con.run(`ALTER TABLE src_next RENAME TO ${table}`);
+    // A partial run keeps the state of keys it did not capture.
+    await con.run(`CREATE OR REPLACE TABLE state_next AS
+      SELECT _key, _row_hash, _first_seen_run, _last_changed_run FROM ${table}
+      ${partial ? `UNION ALL
+      SELECT t.* FROM ${state} t ANTI JOIN ${table} s ON s.${key} = t.${key}` : ""}`);
+    await con.run(`DROP TABLE ${state}`);
+    await con.run(`ALTER TABLE state_next RENAME TO ${state}`);
     await con.run("COMMIT");
   } catch (error) {
     await con.run("ROLLBACK");
