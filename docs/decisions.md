@@ -42,3 +42,30 @@ Lexicon-format output is a possible later addition, not the publication path.
 
 Sources are read only through public, documented endpoints, within robots.txt. A 403 or a
 challenge page stops that source and is recorded as a limitation. No block is evaded.
+
+## 7. Permit status is derived, and named for what the dates support
+
+The county table has no status column. `status` is one of `closed_certificate`,
+`last_inspection_approved`, `last_inspection_not_approved`, `no_inspection`. A permit is
+treated as open in the last two cases. "Last inspection approved" is not proof of a final
+inspection, so the UI and agent show the derived label, not the word "closed".
+
+## 8. Roof year: a completed roof permit beats year built; otherwise unknown
+
+`roof_basis` records which was used. A roof permit counts only when it is a re-roof or a
+new-construction roof and its status is approved or certified; an open permit never sets
+the roof year. Year built of 0 or a placeholder such as 9999 is treated as not recorded.
+Because county permits start in 2020, most roof years rest on year built: that is a proxy
+and is labelled as one.
+
+## 9. No column depends on today's date
+
+Roof age and days open are computed at query time from `roof_year` and `issued_date`.
+Identical source data therefore produces byte-identical tables, and a new published CID
+always means the data changed.
+
+## 10. Reconciliation is by official identifier or exact match only
+
+Properties by folio, permits by permit number, contractors by the licence number printed
+on the permit (name variants are counted, not merged), owners by exact name plus mailing
+address. Near-matches such as "USA" and "U S A" stay separate: merging them would be a guess.
