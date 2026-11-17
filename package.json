@@ -16,7 +16,7 @@
     "snapshot": "tsx src/snapshot.ts",
     "restore": "tsx src/restore.ts",
     "publish-snapshot": "tsx src/publish.ts",
-    "ingest:all": "tsx src/run.ts --source properties && tsx src/run.ts --source permits && tsx src/run.ts --source contractors",
+    "ingest:all": "tsx src/run.ts --source properties && tsx src/run.ts --source permits && tsx src/run.ts --source contractors && tsx src/run.ts --source state_licences",
     "record-check": "tsx src/record-check.ts"
   },
   "dependencies": {

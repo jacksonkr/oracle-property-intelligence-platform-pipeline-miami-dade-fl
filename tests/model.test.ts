@@ -34,6 +34,15 @@ beforeAll(async () => {
     ALTER TABLE src_permits ADD COLUMN _fetched_at TIMESTAMP DEFAULT TIMESTAMP '2026-11-17 00:00:00';
 
     CREATE TABLE src_contractors AS SELECT 'CCC111' AS CONTRACTOR_NUMBER, 'A' AS CONTRACTOR_STATUS, 'https://example.test/c' AS _source_url;
+
+    CREATE TABLE src_state_licences AS SELECT * FROM (VALUES
+      ('k1', 'CCC', '111', 'DOE, JANE', 'ACME ROOFING', 'C', 'A', '08/31/2028', '06/12/2006', 'CCC111', '1 A ST', NULL, 'MIAMI', 'FL', '33101', '23'),
+      ('k2', 'CCC', '111', 'DOE, JANE', 'ACME ROOFING', 'C', 'I', '08/31/2024', '06/12/2006', 'CCC111', '1 A ST', NULL, 'MIAMI', 'FL', '33101', '23'),
+      ('k3', 'QB',  NULL,  'BEST ROOFS', NULL,          'C', 'A', NULL,         '01/02/2010', NULL,     '2 B ST', NULL, 'TAMPA', 'FL', '33602', '39')
+    ) t(_key, occupation_code, license_number, licensee_name, dba_name, primary_status, secondary_status,
+        expiration_date, original_licensure_date, alternate_license_number, address_1, address_2, city, state, zip, county_code);
+    ALTER TABLE src_state_licences ADD COLUMN _source_url VARCHAR DEFAULT 'https://example.test/dbpr.csv';
+    ALTER TABLE src_state_licences ADD COLUMN _fetched_at TIMESTAMP DEFAULT TIMESTAMP '2026-11-17 00:00:00';
   `);
   await buildModel(con);
 });
@@ -86,6 +95,28 @@ describe("permit location", () => {
   it("comes from the matched property, and stays empty without one", async () => {
     expect(await one(`SELECT lon, lat FROM permit WHERE permit_number = 'P1'`)).toEqual({ lon: -80.2, lat: 25.77 });
     expect(await one(`SELECT lon, lat FROM permit WHERE permit_number = 'P4'`)).toEqual({ lon: null, lat: null });
+  });
+});
+
+describe("state licence", () => {
+  const licence = async (number: string) =>
+    one(`SELECT state_licence_found, state_licensee_name, state_business_name, state_licence_standing, state_licence_activity,
+                state_licence_expires, qualified_business_name_match FROM contractor WHERE contractor_number = '${number}'`);
+
+  it("joins on the exact licence number and takes the row with the latest expiry", async () => {
+    expect(await licence("CCC111")).toEqual({
+      state_licence_found: true, state_licensee_name: "DOE, JANE", state_business_name: "ACME ROOFING",
+      state_licence_standing: "Current", state_licence_activity: "Active", state_licence_expires: "2028-08-31",
+      qualified_business_name_match: false,
+    });
+  });
+  it("leaves the licence empty when the number is not in the file, and flags a name-only business match", async () => {
+    expect(await licence("CCC222")).toMatchObject({ state_licence_found: false, state_licensee_name: null, qualified_business_name_match: true });
+  });
+  it("lists qualified businesses as business records", async () => {
+    expect(await one(`SELECT name, in_miami_dade, standing, registered_date FROM business`)).toEqual({
+      name: "BEST ROOFS", in_miami_dade: false, standing: "Current", registered_date: "2010-01-02",
+    });
   });
 });
 

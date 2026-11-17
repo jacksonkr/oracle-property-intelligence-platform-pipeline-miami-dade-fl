@@ -50,6 +50,8 @@ const FACT_LABELS: Record<string, string> = {
   permits_matched_to_property: "Permits matched to a property",
   roofing_permits: "Roofing permits",
   open_roofing_permits: "Open roofing permits",
+  contractors_with_state_licence: "Permit contractors matched to a state licence",
+  qualified_businesses_in_miami_dade: "Qualified businesses registered in Miami-Dade",
 };
 
 export default async function Page() {
@@ -99,7 +101,9 @@ export default async function Page() {
         </div>
         <h3>Coverage</h3>
         <div className="stats">
-          {Object.entries(FACT_LABELS).map(([key, label]) => (
+          {Object.entries(FACT_LABELS)
+            .filter(([key]) => coverage.facts[key] !== undefined)
+            .map(([key, label]) => (
             <div className="stat" key={key}>
               <b>{n(coverage.facts[key])}</b>
               <span>{label}</span>
@@ -166,7 +170,7 @@ export default async function Page() {
                     <td>{when(run?.source_last_edit_at)}</td>
                     <td>
                       <a href={s.url} target="_blank" rel="noreferrer">
-                        ArcGIS layer
+                        {s.url.endsWith(".csv") ? "published file" : "ArcGIS layer"}
                       </a>
                     </td>
                   </tr>

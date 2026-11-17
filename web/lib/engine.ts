@@ -16,6 +16,8 @@ import { getLatest, READ_GATEWAYS, type Artifact, type Manifest, type Publicatio
  */
 
 const TABLES = ["property", "permit", "contractor", "place"] as const;
+/** Tables added by later snapshots. Loaded when the live snapshot has them. */
+const OPTIONAL_TABLES = ["business"] as const;
 
 export interface Engine {
   con: DuckDBConnection;
@@ -60,15 +62,17 @@ async function load(): Promise<Engine> {
   const dir = join(tmpdir(), `oracle-${manifest.root.cid}`);
   mkdirSync(dir, { recursive: true });
 
+  const present = (table: string) => manifest.artifacts.find((a) => a.name === `tables/${table}.parquet`);
+  const tables = [...TABLES, ...OPTIONAL_TABLES.filter((table) => present(table))];
   await Promise.all(
-    TABLES.map(async (table) => {
-      const artifact = manifest.artifacts.find((a) => a.name === `tables/${table}.parquet`);
+    tables.map(async (table) => {
+      const artifact = present(table);
       if (!artifact) throw new Error(`The manifest has no tables/${table}.parquet`);
       await download(artifact, join(dir, `${table}.parquet`));
     }),
   );
   const con = await (await DuckDBInstance.create(":memory:")).connect();
-  for (const table of TABLES) {
+  for (const table of tables) {
     const file = join(dir, `${table}.parquet`).replaceAll("\\", "/").replaceAll("'", "''");
     await con.run(`CREATE VIEW ${table} AS SELECT * FROM read_parquet('${file}')`);
   }

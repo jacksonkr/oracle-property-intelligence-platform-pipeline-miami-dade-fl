@@ -42,6 +42,7 @@ const TABLES: Record<string, string> = {
   property: "floor(lat * 50), floor(lon * 50), folio",
   permit: "floor(lat * 50) NULLS LAST, floor(lon * 50), permit_number",
   contractor: "contractor_number",
+  business: "name, business_key",
   owner: "owner_id",
   place: "name",
 };
@@ -97,6 +98,9 @@ const [facts] = await rows(
      (SELECT count(*) FROM permit WHERE property_matched) AS permits_matched_to_property,
      (SELECT count(*) FROM permit WHERE is_roofing) AS roofing_permits,
      (SELECT count(*) FROM permit WHERE is_roofing AND is_open) AS open_roofing_permits,
+     (SELECT count(*) FROM contractor WHERE state_licence_found) AS contractors_with_state_licence,
+     (SELECT count(*) FROM contractor WHERE state_licence_class IS NOT NULL AND NOT state_licence_found) AS state_format_numbers_not_in_licence_file,
+     (SELECT count(*) FROM business WHERE in_miami_dade) AS qualified_businesses_in_miami_dade,
      (SELECT min(issued_date) FROM permit) AS permits_from,
      (SELECT max(issued_date) FROM permit) AS permits_to`,
 );
@@ -111,14 +115,14 @@ const coverage = {
     key: s.key,
     entity: s.entity,
     publisher: s.publisher,
-    url: s.layerUrl,
+    url: s.url,
     limitations: s.limitations,
     last_full_run: latestBySource.get(s.key) ?? null,
   })),
   not_loaded: [
     { what: "BBB ratings", why: "Not yet ingested." },
     { what: "Municipal building permits", why: "Each municipality keeps its own permit system; only the county building department is loaded." },
-    { what: "Florida DBPR licence standing and Sunbiz corporate records", why: "Not yet ingested." },
+    { what: "Sunbiz corporate registry", why: "Not yet ingested. Business records come from DBPR qualified-business registrations instead." },
   ],
 };
 writeFileSync(join(rootDir, "coverage.json"), JSON.stringify(coverage, null, 2));

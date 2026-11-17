@@ -1,8 +1,9 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { fetchRange, getLayerInfo, getOidBounds, mapConcurrent, planRanges } from "./arcgis.js";
+import { captureArcgis } from "./arcgis.js";
 import { COUNTY, getSource } from "./catalog.js";
+import { captureCsv } from "./csv.js";
 import { lit, loadSource, openStore } from "./store.js";
 
 /**
@@ -37,33 +38,23 @@ await con.run(`INSERT INTO pipeline_run VALUES
   (${lit(runId)}, ${lit(COUNTY.slug)}, ${lit(startedAt.toISOString())}, NULL, 'RUNNING')`);
 
 try {
-  const info = await getLayerInfo(source.layerUrl);
-  const bounds = await getOidBounds(source.layerUrl, info.oidField);
-  const allRanges = planRanges(bounds.min, bounds.max, info.maxRecordCount);
-  const ranges = maxPages ? allRanges.slice(0, maxPages) : allRanges;
-  const partial = ranges.length < allRanges.length;
-  console.log(
-    `[${runId}] ${source.key}: ${bounds.count} rows reported, ${ranges.length}/${allRanges.length} pages` +
-      (partial ? " (partial run)" : ""),
-  );
-
-  let done = 0;
-  await mapConcurrent(ranges, concurrency, async (range, index) => {
-    const captured = await fetchRange(source.layerUrl, info.oidField, range, source.hasGeometry);
-    const file = join(rawDir, `part-${String(index).padStart(6, "0")}.ndjson`);
-    writeFileSync(file, captured.map((row) => JSON.stringify(row)).join("\n") + "\n");
-    if (++done % 50 === 0 || done === ranges.length) console.log(`  ${done}/${ranges.length} pages`);
-  });
+  // Each source kind has its own reader; everything after capture is shared.
+  const capture =
+    source.kind === "arcgis"
+      ? await captureArcgis(source, rawDir, { concurrency, maxPages })
+      : await captureCsv(source, rawDir, maxPages);
+  const partial = capture.partial;
+  console.log(`[${runId}] ${source.key}: ${capture.sourceCount} rows reported, ${capture.pages} pages` + (partial ? " (partial run)" : ""));
 
   const glob = join(rawDir, "*.ndjson").replaceAll("\\", "/");
-  const result = await loadSource(con, source, info.fields, info.oidField, glob, runId, partial);
+  const result = await loadSource(con, source, capture.fields, capture.oidField, glob, runId, partial);
   const seconds = (Date.now() - startedAt.getTime()) / 1000;
 
   await con.run(`INSERT INTO pipeline_run_source VALUES (
-    ${lit(runId)}, ${lit(source.key)}, ${lit(source.layerUrl)}, ${lit(info.dataLastEditAt)},
-    ${bounds.count}, ${result.fetchedRows}, ${result.distinctKeys}, ${result.duplicateRows},
+    ${lit(runId)}, ${lit(source.key)}, ${lit(source.url)}, ${lit(capture.lastEditAt)},
+    ${capture.sourceCount}, ${result.fetchedRows}, ${result.distinctKeys}, ${result.duplicateRows},
     ${result.rowsWithoutKey}, ${result.added}, ${result.changed}, ${result.removed ?? "NULL"},
-    ${result.unchanged}, ${ranges.length}, ${seconds}, ${partial}, ${lit(source.limitations.join(" | "))})`);
+    ${result.unchanged}, ${capture.pages}, ${seconds}, ${partial}, ${lit(source.limitations.join(" | "))})`);
   await con.run(`UPDATE pipeline_run SET status = ${lit(partial ? "PARTIAL" : "COMPLETE")},
     finished_at = ${lit(new Date().toISOString())} WHERE run_id = ${lit(runId)}`);
   console.log(JSON.stringify({ runId, source: source.key, partial, seconds, ...result }, null, 2));

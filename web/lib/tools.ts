@@ -76,7 +76,9 @@ export const TOOLS = [
     description:
       "Find building permits within a radius of a point, longest-open first, with the contractor printed on the permit. " +
       "By default only open roofing permits. The county publishes no status: a permit is 'open' when it has no certificate and its last " +
-      "inspection was not approved or it was never inspected. County permits start in 2020. BBB ratings are not loaded.",
+      "inspection was not approved or it was never inspected. County permits start in 2020. Where the licence number printed on " +
+      "the permit is in Florida's DBPR licence file, the licensee, business name, standing (Current, Probation, Suspended), " +
+      "activity and expiry are returned. BBB ratings are not loaded.",
     inputSchema: permitSearchInput.extend({ limit: agentLimit }),
     run: async (input) => {
       const result = await searchPermits(input);
@@ -87,6 +89,8 @@ export const TOOLS = [
           pick(row, [
             "permit_number", "folio", "address", "roofing_kind", "application_type", "issued_date", "days_since_issued", "status",
             "contractor_name", "contractor_number", "state_licence_class", "contractor_county_status",
+            "state_licence_found", "state_licensee_name", "state_business_name", "state_licence_standing",
+            "state_licence_activity", "state_licence_expires",
             "contractor_roofing_permits", "contractor_open_roofing_permits", "miles", "source_url",
           ]),
         ),
@@ -117,7 +121,7 @@ export const TOOLS = [
       const coverage = await getSnapshotJson<Record<string, unknown>>(manifest.root.cid, "coverage.json");
       const columns = await query<{ table_name: string; column_name: string; data_type: string }>(
         `SELECT table_name, column_name, data_type FROM information_schema.columns
-         WHERE table_name IN ('property', 'permit', 'contractor', 'place') ORDER BY table_name, ordinal_position`,
+         WHERE table_name IN ('property', 'permit', 'contractor', 'business', 'place') ORDER BY table_name, ordinal_position`,
       );
       const tables: Record<string, string[]> = {};
       for (const c of columns.rows) (tables[c.table_name] ??= []).push(`${c.column_name} ${c.data_type}`);
@@ -132,6 +136,7 @@ export const TOOLS = [
         notes: [
           "roof age = year(current_date) - roof_year; roof_basis is roof_permit, year_built or unknown.",
           "permit.is_open and permit.status are derived from inspection and certificate dates.",
+          "contractor.state_licence_* come from Florida DBPR by exact licence number. business holds DBPR qualified-business registrations (name and address only).",
           "Distances: use lat/lon (WGS84 degrees). Every row has source_url, the public request it came from.",
         ],
       };
@@ -141,7 +146,7 @@ export const TOOLS = [
     name: "query_sql",
     title: "Run a read-only SQL query",
     description:
-      "Run one DuckDB SELECT over the tables property, permit, contractor and place for questions the other tools do not cover " +
+      "Run one DuckDB SELECT over the tables property, permit, contractor, business and place for questions the other tools do not cover " +
       "(counts, groupings, rankings). Call dataset_info first for the columns. Only a single SELECT is accepted; at most 200 rows return.",
     inputSchema: z.object({ sql: z.string().min(8).max(4000).describe("One DuckDB SELECT statement") }),
     run: async ({ sql }) => {

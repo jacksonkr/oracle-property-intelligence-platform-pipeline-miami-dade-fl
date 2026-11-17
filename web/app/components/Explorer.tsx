@@ -267,7 +267,7 @@ export function Explorer() {
                 <th className="num">Open for</th>
                 <th>Status (derived)</th>
                 <th>Contractor</th>
-                <th>Licence</th>
+                <th>Licence (Florida DBPR)</th>
                 <th>BBB</th>
                 <th className="num">Miles</th>
                 <th>Source</th>
@@ -300,7 +300,19 @@ export function Explorer() {
                   </td>
                   <td>
                     <span className="mono">{row.contractor_number ?? "—"}</span>
-                    {row.state_licence_class && <div className="muted">state class {row.state_licence_class}</div>}
+                    {row.state_licence_found === true && (
+                      <div>
+                        <span className={`tag ${row.state_licence_standing === "Current" && row.state_licence_activity === "Active" ? "ok" : "bad"}`}>
+                          {row.state_licence_standing}
+                          {row.state_licence_activity ? `, ${row.state_licence_activity}` : ""}
+                        </span>
+                        <div className="muted">
+                          {row.state_licensee_name}
+                          {row.state_licence_expires ? `, expires ${row.state_licence_expires}` : ""}
+                        </div>
+                      </div>
+                    )}
+                    {row.state_licence_found === false && row.contractor_number && <div className="muted">not in the state licence file</div>}
                   </td>
                   <td className="muted">not loaded</td>
                   <td className="num">{row.miles}</td>

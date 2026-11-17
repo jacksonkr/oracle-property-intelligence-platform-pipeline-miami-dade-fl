@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Deterministic ArcGIS FeatureServer reader.
@@ -159,4 +161,31 @@ export async function mapConcurrent<T, R>(
     }),
   );
   return results;
+}
+
+/** Capture a whole ArcGIS layer (or its first `maxPages` ranges) as NDJSON pages under `rawDir`. */
+export async function captureArcgis(
+  source: { key: string; url: string; hasGeometry: boolean },
+  rawDir: string,
+  options: { concurrency: number; maxPages: number | null },
+): Promise<{ fields: LayerField[]; oidField: string; sourceCount: number; lastEditAt: string | null; pages: number; partial: boolean }> {
+  const info = await getLayerInfo(source.url);
+  const bounds = await getOidBounds(source.url, info.oidField);
+  const allRanges = planRanges(bounds.min, bounds.max, info.maxRecordCount);
+  const ranges = options.maxPages ? allRanges.slice(0, options.maxPages) : allRanges;
+  let done = 0;
+  await mapConcurrent(ranges, options.concurrency, async (range, index) => {
+    const captured = await fetchRange(source.url, info.oidField, range, source.hasGeometry);
+    const file = join(rawDir, `part-${String(index).padStart(6, "0")}.ndjson`);
+    writeFileSync(file, captured.map((row) => JSON.stringify(row)).join("\n") + "\n");
+    if (++done % 50 === 0 || done === ranges.length) console.log(`  ${done}/${ranges.length} pages`);
+  });
+  return {
+    fields: info.fields,
+    oidField: info.oidField,
+    sourceCount: bounds.count,
+    lastEditAt: info.dataLastEditAt,
+    pages: ranges.length,
+    partial: ranges.length < allRanges.length,
+  };
 }

@@ -124,6 +124,8 @@ export async function searchPermits(raw: PermitSearchInput) {
             m.contractor_name, m.contractor_number,
             c.state_licence_class, c.county_status AS contractor_county_status,
             c.roofing_permits AS contractor_roofing_permits, c.open_roofing_permits AS contractor_open_roofing_permits,
+            c.* EXCLUDE (contractor_number, name, name_variants, permits, roofing_permits, open_roofing_permits,
+                         first_permit_date, last_permit_date, state_licence_class, county_status, county_source_url, source_url),
             m.lat, m.lon, round(${DISTANCE}, 2) AS miles, m.source_url, m.fetched_at
      FROM permit m LEFT JOIN contractor c ON c.contractor_number = m.contractor_number
      WHERE ${filter}

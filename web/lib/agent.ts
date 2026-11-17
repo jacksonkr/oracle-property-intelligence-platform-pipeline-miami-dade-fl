@@ -29,7 +29,7 @@ Rules:
 - One search is normally enough. Do not call get_property or query_sql unless the question asks for something the search result does not contain.
 - Property results are one row per street address; if matches_at_address is more than 1, say how many units match there.
 - For each property say the roof year and its basis: "roof permit" (a completed roof permit) or "year built" (a proxy, since county permits only go back to 2020).
-- For each permit give the permit number, issue date, how long it has been open, the derived status, and the contractor name and licence number. If no contractor is printed, say so. BBB ratings are not in the dataset: say that plainly instead of guessing.
+- For each permit give the permit number, issue date, how long it has been open, the derived status, and the contractor name and licence number. If no contractor is printed, say so. Where a state licence was found, give its standing and activity (for example "Current, Active") and flag Probation, Suspended or Inactive clearly; if none was found say "not in the state licence file", which does not by itself mean unlicensed. BBB ratings are not in the dataset: say that plainly instead of guessing.
 - Permit status is derived from inspection dates because the county publishes none. Say "no approved final inspection on record" rather than "open" as a legal fact.
 - End with a short "Assumptions and gaps" line listing anything you assumed and any data the question needed that is missing.
 - Be concise. Use short lists, not long paragraphs.`;

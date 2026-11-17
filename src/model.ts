@@ -5,7 +5,8 @@ import type { DuckDBConnection } from "@duckdb/node-api";
  *
  *   property    one row per folio, with the roof-age basis and owner location
  *   permit      one row per permit, with a derived status and a roofing flag
- *   contractor  one row per contractor number seen on permits
+ *   contractor  one row per contractor number seen on permits, with its state licence
+ *   business    one row per Florida qualified-business registration
  *   owner       one row per distinct owner name + mailing address
  *   place       one row per site city, with the centre of its properties
  *
@@ -153,7 +154,24 @@ const CONTRACTOR = `
 -- One row per contractor number printed on permits. Name variants are counted,
 -- not merged: the number is the identity, the most-used name is the label.
 CREATE OR REPLACE TABLE contractor AS
-WITH names AS (
+WITH state AS (
+  -- The state licence whose number is printed on the permit. Where the file lists a
+  -- number twice, the row with the latest expiry is used.
+  SELECT alternate_license_number AS contractor_number,
+         licensee_name, dba_name, primary_status, secondary_status,
+         try_strptime(expiration_date, '%m/%d/%Y')::DATE AS expires,
+         _source_url AS state_source_url
+  FROM src_state_licences
+  WHERE alternate_license_number IS NOT NULL
+  QUALIFY row_number() OVER (
+    PARTITION BY alternate_license_number
+    ORDER BY try_strptime(expiration_date, '%m/%d/%Y') DESC NULLS LAST, _key) = 1
+),
+qualified AS (
+  SELECT DISTINCT upper(trim(licensee_name)) AS name FROM src_state_licences
+  WHERE occupation_code = 'QB' AND licensee_name IS NOT NULL
+),
+names AS (
   SELECT contractor_number, contractor_name, count(*) AS n
   FROM permit WHERE contractor_number IS NOT NULL GROUP BY ALL
 ),
@@ -162,7 +180,8 @@ county AS (
          min(CONTRACTOR_STATUS) AS county_status,
          min(_source_url) AS county_source_url
   FROM src_contractors GROUP BY 1
-)
+),
+base AS (
 SELECT
   p.contractor_number,
   (SELECT contractor_name FROM names n WHERE n.contractor_number = p.contractor_number
@@ -180,7 +199,35 @@ SELECT
   min(p.source_url)                  AS source_url
 FROM permit p LEFT JOIN county c USING (contractor_number)
 WHERE p.contractor_number IS NOT NULL
-GROUP BY p.contractor_number, c.county_status, c.county_source_url;
+GROUP BY p.contractor_number, c.county_status, c.county_source_url
+)
+SELECT
+  b.*,
+  -- Official identity: the state licence with exactly this number.
+  s.contractor_number IS NOT NULL          AS state_licence_found,
+  s.licensee_name                          AS state_licensee_name,
+  s.dba_name                               AS state_business_name,
+  CASE s.primary_status WHEN 'C' THEN 'Current' WHEN 'P' THEN 'Probation' WHEN 'S' THEN 'Suspended' END AS state_licence_standing,
+  CASE s.secondary_status WHEN 'A' THEN 'Active' WHEN 'I' THEN 'Inactive' END AS state_licence_activity,
+  s.expires                                AS state_licence_expires,
+  s.state_source_url,
+  -- A name match only: a qualified business with exactly this name exists. Not proof it is the same firm.
+  q.name IS NOT NULL                       AS qualified_business_name_match
+FROM base b
+LEFT JOIN state s USING (contractor_number)
+LEFT JOIN qualified q ON q.name = upper(trim(b.name));
+
+-- Business records: Florida qualified-business registrations (name and address, no licence number).
+CREATE OR REPLACE TABLE business AS
+SELECT _key AS business_key,
+       licensee_name AS name, dba_name,
+       address_1, address_2, city, state, zip, county_code,
+       coalesce(county_code = '23', false) AS in_miami_dade,
+       CASE primary_status WHEN 'C' THEN 'Current' WHEN 'P' THEN 'Probation' WHEN 'S' THEN 'Suspended' END AS standing,
+       CASE secondary_status WHEN 'A' THEN 'Active' WHEN 'I' THEN 'Inactive' END AS activity,
+       try_strptime(original_licensure_date, '%m/%d/%Y')::DATE AS registered_date,
+       _source_url AS source_url, _fetched_at AS fetched_at
+FROM src_state_licences WHERE occupation_code = 'QB';
 `;
 
 const PLACE = `

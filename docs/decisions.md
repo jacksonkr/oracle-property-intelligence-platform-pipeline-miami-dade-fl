@@ -191,3 +191,22 @@ There is no API Gateway, VPC, database or queue, so nothing runs or bills while 
 
 Tested before deploying by running the image locally with a read-only filesystem and a
 non-root user, then on the deployed function: page, API, MCP, live verification and agent.
+
+## 23. State licences come from DBPR's published file, joined by exact licence number
+
+Florida DBPR publishes its construction licensee file as public record with a documented
+column layout. It is a second kind of source (`kind: "csv"`): one request for the whole
+file, rows hashed and compared like any other source. If a row does not have the documented
+number of columns the run stops, because shifted columns would corrupt every field.
+
+- **Join:** the licence number printed on a permit equals DBPR's "Alternate Lic#". Only an
+  exact match counts. 1,917 of 2,237 roofing contractors match, covering 74,124 of 85,385
+  roofing permits.
+- **What a miss means:** the file omits null and void, delinquent and involuntarily inactive
+  licences. "Not in the state licence file" is shown as exactly that, not as "unlicensed".
+- **Business records:** about half the file is qualified-business registrations with a name
+  and address but no licence number. They are published as the `business` table. A contractor
+  whose name equals a qualified business's name is flagged as a name match only.
+- **Key:** licences have a number; qualified businesses do not, so name, address and original
+  date are part of the key. The first attempt keyed on the number alone and collapsed 128,990
+  business rows into one.
