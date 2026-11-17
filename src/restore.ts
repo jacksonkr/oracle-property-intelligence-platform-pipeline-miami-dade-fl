@@ -24,7 +24,8 @@ for (const table of ["pipeline_run", "pipeline_run_source", "pipeline_change"]) 
 }
 for (const source of SOURCES) {
   await ensureStateTable(con, source.key);
-  await con.run(`INSERT INTO ${stateTable(source.key)} SELECT * FROM read_parquet(${file(`key_state_${source.key}`)})`);
+  // BY NAME: snapshots written before a state column existed restore with NULL in it.
+  await con.run(`INSERT INTO ${stateTable(source.key)} BY NAME SELECT * FROM read_parquet(${file(`key_state_${source.key}`)})`);
   const [row] = await rows(con, `SELECT count(*) AS n FROM ${stateTable(source.key)}`);
   console.log(`${source.key}: ${row?.n} keys restored`);
 }

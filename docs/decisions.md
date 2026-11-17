@@ -115,3 +115,11 @@ Every attempt, including failures, is saved in `publications/<snapshot>/retrieva
 
 A snapshot is added to `publications/index.json` only when every listed CID was fetched
 from two independent gateways with matching size and SHA-256.
+
+## 16. `fetched_at` is when this version of a record was captured
+
+A record that did not change keeps the capture time of the run that first saw its current
+content. Stamping every row with the latest run's time made a re-read of identical data
+produce different files and a new CID for every table. When each source was last re-read
+is in the run history, not on the rows. Verified with two full back-to-back ingests: every
+data table kept its CID; only the run history and coverage files changed.

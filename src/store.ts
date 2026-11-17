@@ -95,10 +95,12 @@ export interface LoadResult {
 
 /** Per-source record of which keys exist and what their content hash was. */
 export const stateTable = (sourceKey: string) => ident(`key_state_${sourceKey}`);
-const STATE_COLUMNS = `_key VARCHAR, _row_hash VARCHAR, _first_seen_run VARCHAR, _last_changed_run VARCHAR`;
+const STATE_COLUMNS = `_key VARCHAR, _row_hash VARCHAR, _first_seen_run VARCHAR, _last_changed_run VARCHAR, _captured_at TIMESTAMP`;
 
 export async function ensureStateTable(con: DuckDBConnection, sourceKey: string): Promise<void> {
   await con.run(`CREATE TABLE IF NOT EXISTS ${stateTable(sourceKey)} (${STATE_COLUMNS})`);
+  // Stores created before `_captured_at` existed gain the column; NULL means "not known".
+  await con.run(`ALTER TABLE ${stateTable(sourceKey)} ADD COLUMN IF NOT EXISTS _captured_at TIMESTAMP`);
 }
 
 /**
@@ -171,8 +173,13 @@ export async function loadSource(
       SELECT ${run}, ${src}, record_key, change FROM delta
       WHERE change IN ('changed', 'removed') ${hadSnapshot ? "OR change = 'added'" : ""}`);
 
+    // `_fetched_at` is when this version of the record was captured. An unchanged
+    // record keeps its earlier time, so re-reading identical data yields identical
+    // rows, files and CIDs. When a source was last re-read is in the run history.
     await con.run(`CREATE OR REPLACE TABLE src_next AS
-      SELECT s.*,
+      SELECT s.* REPLACE (
+               CASE WHEN t._row_hash = s._row_hash AND t._captured_at IS NOT NULL
+                    THEN t._captured_at ELSE s._fetched_at END AS _fetched_at),
              coalesce(t._first_seen_run, ${run}) AS _first_seen_run,
              CASE WHEN t.${key} IS NULL OR t._row_hash <> s._row_hash THEN ${run}
                   ELSE t._last_changed_run END AS _last_changed_run
@@ -183,8 +190,8 @@ export async function loadSource(
     await con.run(`ALTER TABLE src_next RENAME TO ${table}`);
     // A partial run keeps the state of keys it did not capture.
     await con.run(`CREATE OR REPLACE TABLE state_next AS
-      SELECT _key, _row_hash, _first_seen_run, _last_changed_run FROM ${table}
-      ${partial ? `UNION ALL
+      SELECT _key, _row_hash, _first_seen_run, _last_changed_run, _fetched_at AS _captured_at FROM ${table}
+      ${partial ? `UNION ALL BY NAME
       SELECT t.* FROM ${state} t ANTI JOIN ${table} s ON s.${key} = t.${key}` : ""}`);
     await con.run(`DROP TABLE ${state}`);
     await con.run(`ALTER TABLE state_next RENAME TO ${state}`);
