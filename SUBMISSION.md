@@ -37,7 +37,8 @@ County ArcGIS layers ──▶ ingest (hash per record, deltas per run) ──�
 |---|---|---|
 | property | 938,567 | Property Appraiser roll: site address, owner, mailing address, year built, last sale, coordinates |
 | permit | 489,896 | County building permits, 2020-01-01 onward: type, dates, folio, contractor, inspections |
-| contractor | 17,166 | One per licence number printed on permits, joined to the county contractor table |
+| contractor | 17,166 | One per licence number printed on permits, joined to the county contractor table and to Florida DBPR state licences (11,304 matched by exact number) |
+| business | 128,906 | Florida DBPR qualified-business registrations (12,885 in Miami-Dade): name, address, standing |
 | owner | 797,385 | Distinct owner name and mailing address |
 | place | 34 | City centres derived from the roll, for "near a city" questions |
 
@@ -52,9 +53,9 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Permit records, roofing emphasis | Partly: county building department only, from 2020. 85,385 roofing permits | Run summary, documented limits |
 | Permit status, dates, open duration | Met, with a caveat: the county publishes no status, so it is derived from inspection and certificate dates and labelled as derived | Explorer, decision 7 |
 | Ownership records | Met: owner and mailing address on every property; 797,385 distinct owners | Explorer |
-| Contractor records | Met for contractors named on permits; county licence status joined | Explorer, permits tab |
+| Contractor records | Met for contractors named on permits. State licence standing, activity and expiry are joined by exact licence number: 1,917 of 2,237 roofing contractors, covering 74,124 of 85,385 roofing permits | Explorer, permits tab; decision 23 |
 | BBB ratings | **Not loaded** | Listed under documented limits |
-| Business records | **Not loaded** (Sunbiz, DBPR) | Listed under documented limits |
+| Business records | Met in part: 128,906 DBPR qualified-business registrations. The Sunbiz corporate registry is not loaded | `business` table through MCP `query_sql` |
 | Coordinates | Met: 100% of properties | Run summary |
 | Roof age or proxy, configurable threshold | Met: completed roof permit, else year built, else unknown; basis shown on every row | Explorer, decision 8 |
 | Reconcile duplicates | Met by official identifier only (folio, permit number, licence number); near-matches are not merged | Decision 10 |
@@ -74,7 +75,7 @@ Every row carries `source_url` (the exact public request that returned it) and `
 | Prior CIDs immutable, history retained | Met | Publication history |
 | CAR for directory artifacts | Met: one CAR per snapshot, pinned and listed in the manifest | Manifest |
 | Each CID from two independent public gateways | Met at publish time and re-checkable live. `ipfs.io` and `dweb.link` no longer serve plain downloads, so other gateways are used | `publications/<snapshot>/retrieval.json`, decision 15 |
-| Radius queries, roofs over N years, open roofing permits, contractor | Met | Explorer, agent |
+| Radius queries, roofs over N years, open roofing permits, contractor | Met, including a filter on the contractor's state licence standing | Explorer, agent |
 | Not sold in 10+ years; out-of-area owners | Met through the agent, MCP and API (`minYearsSinceSale`, `ownerLocation`) | Agent example 3 |
 
 ## Demo walkthrough
@@ -129,8 +130,8 @@ Requires Node 22.18 or later. No account is needed to ingest or build a snapshot
 
 ```bash
 npm ci
-npm test                     # 18 tests
-npm run ingest:all           # read all three sources (about 2 minutes, 986 requests)
+npm test                     # 25 tests
+npm run ingest:all           # read all four sources (about 2 minutes, 987 requests)
 npm run runs                 # run history with added / changed / removed per source
 npm run snapshot             # Parquet tables, state, manifest and CAR under data/publish/<id>/
 ```
@@ -186,8 +187,9 @@ change publishes nothing, so only real changes consume it.
 | Property Appraiser roll (ArcGIS) | 944,398 rows in 25 to 65 s over 473 requests | Only the most recent sale. No per-row change time, so changes are found by content hash. 5,830 rows have no folio and are excluded. |
 | County building permits (ArcGIS) | 489,896 rows in about 35 s over 490 requests | Starts 2020-01-01. County building department only: municipalities such as Miami and Hialeah keep their own systems. No status column. |
 | County contractor table (ArcGIS) | 22,281 rows in about 4 s | One row per contractor, tradesman and trade class. County-held licences only. |
+| Florida DBPR licensee file (CSV) | 263,664 rows in about 6 s, one request | Statewide. Omits null and void, delinquent and involuntarily inactive licences, so a miss is not proof of no licence. About half the rows are qualified businesses with no licence number. |
 | BBB | Not ingested | Profile pages are permitted by robots.txt; search and category pages are not. |
-| Florida DBPR, Sunbiz | Not ingested | Bulk files exist; not yet loaded. |
+| Sunbiz | Not ingested | Bulk files are offered over SFTP; not yet loaded. |
 
 Year built is missing for 69,096 properties and is a proxy for roof age wherever no completed
 roof permit exists.
