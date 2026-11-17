@@ -91,7 +91,7 @@ export const TOOLS = [
             "contractor_name", "contractor_number", "state_licence_class", "contractor_county_status",
             "state_licence_found", "state_licensee_name", "state_business_name", "state_licence_standing",
             "state_licence_activity", "state_licence_expires",
-            "contractor_roofing_permits", "contractor_open_roofing_permits", "miles", "source_url",
+            "contractor_roofing_permits", "contractor_open_roofing_permits", "lat", "lon", "miles", "source_url",
           ]),
         ),
         bbb_rating: "not loaded for any contractor",

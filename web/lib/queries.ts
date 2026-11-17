@@ -99,6 +99,13 @@ export const permitSearchInput = area.extend({
   roofingOnly: z.boolean().default(true).describe("Only roofing permits (re-roof, roof maintenance, new-construction roof, other roof work)"),
   openOnly: z.boolean().default(true).describe("Only permits with no approved last inspection and no certificate"),
   minDaysOpen: z.number().int().min(0).optional().describe("Only permits issued at least this many days ago"),
+  contractorLicence: z
+    .enum(["current_active", "problem", "not_in_state_file"])
+    .optional()
+    .describe(
+      "Filter by the contractor's Florida state licence: current_active = standing Current and activity Active; " +
+        "problem = found but on Probation, Suspended or Inactive; not_in_state_file = a contractor number is printed but is not in DBPR's licence file",
+    ),
   limit: z.number().int().min(1).max(500).default(100),
 });
 export type PermitSearchInput = z.input<typeof permitSearchInput>;
@@ -114,9 +121,20 @@ export async function searchPermits(raw: PermitSearchInput) {
     where.push(`date_diff('day', m.issued_date, current_date) >= $minDaysOpen`);
     params.minDaysOpen = input.minDaysOpen;
   }
+  // Licence filters read the contractor table, so the count joins it too.
+  if (input.contractorLicence === "current_active") {
+    where.push(`c.state_licence_found AND c.state_licence_standing = 'Current' AND c.state_licence_activity = 'Active'`);
+  } else if (input.contractorLicence === "problem") {
+    where.push(`c.state_licence_found AND NOT (c.state_licence_standing = 'Current' AND coalesce(c.state_licence_activity, '') = 'Active')`);
+  } else if (input.contractorLicence === "not_in_state_file") {
+    where.push(`m.contractor_number IS NOT NULL AND NOT coalesce(c.state_licence_found, false)`);
+  }
   const filter = where.join("\n    AND ");
 
-  const total = await query<{ matches: string }>(`SELECT count(*) AS matches FROM permit m WHERE ${filter}`, params);
+  const total = await query<{ matches: string }>(
+    `SELECT count(*) AS matches FROM permit m LEFT JOIN contractor c ON c.contractor_number = m.contractor_number WHERE ${filter}`,
+    params,
+  );
   const result = await query(
     `SELECT m.permit_number, m.folio, m.address, m.application_type, m.roofing_kind, m.category, m.description,
             m.issued_date, m.status, m.is_open, date_diff('day', m.issued_date, current_date) AS days_since_issued,

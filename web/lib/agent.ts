@@ -104,5 +104,7 @@ async function askWith(model: string, question: string): Promise<{ answer: strin
     maxRetries: 0,
     abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
   });
-  return { answer: result.text, steps, model };
+  // If the model used every step on tool calls it leaves no text; say so instead of returning nothing.
+  const answer = result.text.trim() || "I ran several searches but did not reach a written answer. The records I retrieved are listed below.";
+  return { answer, steps, model };
 }
