@@ -71,5 +71,45 @@
         "unchanged": 22279
       }
     ]
+  },
+  {
+    "checked_at": "2026-11-17T05:48:39.987Z",
+    "against_snapshot": "20261117T050847Z",
+    "result": "no change",
+    "runs": [
+      {
+        "run_id": "20261117T054704Z",
+        "source_key": "properties",
+        "finished_at": "2026-11-17 05:47:52.732",
+        "source_count": 944398,
+        "distinct_keys": 938567,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 938567
+      },
+      {
+        "run_id": "20261117T054753Z",
+        "source_key": "permits",
+        "finished_at": "2026-11-17 05:48:36.247",
+        "source_count": 489896,
+        "distinct_keys": 489896,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 489896
+      },
+      {
+        "run_id": "20261117T054836Z",
+        "source_key": "contractors",
+        "finished_at": "2026-11-17 05:48:39.611",
+        "source_count": 22281,
+        "distinct_keys": 22279,
+        "added": 0,
+        "changed": 0,
+        "removed": 0,
+        "unchanged": 22279
+      }
+    ]
   }
 ]
